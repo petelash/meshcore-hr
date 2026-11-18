@@ -8,29 +8,29 @@
       "roditelj": null
     },
     {
-      "id": "croatia",
-      "naziv": "croatia",
+      "id": "hr",
+      "naziv": "hr",
       "roditelj": "eu"
     },
     {
       "id": "slavonija",
       "naziv": "slavonija",
-      "roditelj": "croatia"
+      "roditelj": "hr"
     },
     {
       "id": "sredisnja",
       "naziv": "sredisnja",
-      "roditelj": "croatia"
+      "roditelj": "hr"
     },
     {
       "id": "istralika",
       "naziv": "istralika",
-      "roditelj": "croatia"
+      "roditelj": "hr"
     },
     {
       "id": "dalmacija",
       "naziv": "dalmacija",
-      "roditelj": "croatia"
+      "roditelj": "hr"
     }
   ],
   "dodjele": {}
