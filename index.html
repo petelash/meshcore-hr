@@ -233,7 +233,8 @@ const S = {
   crOdgovori: {},
   lat: null, lon: null,
   jls: null,            // { s, n, z, r }
-  regijaPut: [],        // ['#eu','#hr','#slavonija',...]
+  regijaPut: [],        // ['eu','hr','slavonija',...]
+  sPodregijama: false,  // upisati i podregije ispod vlastite razine?
   ime: '', lozinka: '', owner: '',
   postaviSat: true,
   allowReadOnly: false,
@@ -1060,7 +1061,7 @@ function ispocetka(pitaj) {
   Object.assign(S, {
     korak: 0, tip: null, companionVeza: 'ble', novi: POCETNI_NACIN, ploca: null, izdanje: null,
     cr: 8, crOdgovori: {}, lat: null, lon: null, jls: null,
-    regijaPut: [], regijaId: null, ime: '', lozinka: '', owner: '',
+    regijaPut: [], regijaId: null, sPodregijama: false, ime: '', lozinka: '', owner: '',
     postaviSat: true, allowReadOnly: false, verzija: null,
   });
   karta = null; pin = null; slojevi = {};
@@ -1772,6 +1773,18 @@ function crtajRegije() {
         : '') +
     '</div>' +
 
+    (R.potomci(S.regijaId).length
+      ? '<label class="flex items-start gap-2 mt-3 cursor-pointer">' +
+          '<input id="iPodregije" type="checkbox" class="mt-0.5" style="width:auto"' +
+            (S.sPodregijama ? ' checked' : '') + '>' +
+          '<span style="font-size:.82rem;line-height:1.5">Upiši i podregije ispod ' +
+            '<b>#' + esc(moja ? moja.naziv : '') + '</b> ' +
+            '<span style="color:var(--muted)">(' + R.potomci(S.regijaId).length + ')</span>' +
+            '<span class="hint" style="margin-top:.15rem">Za repetitor koji stvarno pokriva ' +
+            'cijelo to područje. Inače ostavi prazno.</span></span>' +
+        '</label>'
+      : '') +
+
     '<div class="fld mt-4">Što se upisuje na čvor</div>' +
     '<pre class="rounded-lg p-3 scroll-y" style="background:#0b1220;border:1px solid var(--line);' +
       'max-height:28vh;font-size:.73rem;line-height:1.6;color:#93c5fd;white-space:pre">' +
@@ -1786,7 +1799,14 @@ function crtajRegije() {
           'Pokrivaš šire područje? Odaberi višu razinu.') +
     '</div>';
 
-  $('#selRazina').onchange = (e) => { S.regijaId = e.target.value; crtajRegije(); osvjeziLanac(); };
+  $('#selRazina').onchange = (e) => {
+    S.regijaId = e.target.value;
+    S.sPodregijama = false;          // nova razina, nova odluka
+    crtajRegije(); osvjeziLanac();
+  };
+  if ($('#iPodregije')) {
+    $('#iPodregije').onchange = (e) => { S.sPodregijama = e.target.checked; crtajRegije(); };
+  }
   $('#bNovaPod').onclick = () => {
     const naziv = prompt('Naziv podregije ispod #' + moja.naziv + ' (bez #):');
     if (!naziv) return;
@@ -2039,12 +2059,17 @@ function naredbe() {
 /** Regije idu zasebno jer je "region load" višeredna naredba. */
 function regijeBlok() {
   if (!S.regijaPut || !S.regijaPut.length) return null;
-  // Samo lanac od korijena do vlastite regije. Nikakve susjedne ni podređene
-  // regije — čvoru u Dardi nema što raditi #pmoslavina.
+  // Lanac od korijena do vlastite regije. Ništa susjedno — čvoru u Dardi nema
+  // što raditi #pmoslavina. Podregije ispod idu samo ako ih korisnik izričito
+  // zatraži, za repetitor koji stvarno pokriva cijelo to područje.
   const lanac = S.regijaPut.map(id => R.cvor(id)).filter(Boolean);
   const redovi = lanac.map((c, i) => '  '.repeat(i) + '#' + c.naziv + (i === 0 ? ' F' : ''));
   const dno = lanac.length - 1;
-  return { redovi, home: '#' + lanac[dno].naziv, lanac, dno };
+  const potomci = S.sPodregijama ? R.potomci(lanac[dno].id) : [];
+  for (const p of potomci) {
+    redovi.push('  '.repeat(dno + p.dubina) + '#' + p.cvor.naziv);
+  }
+  return { redovi, home: '#' + lanac[dno].naziv, lanac, dno, potomci };
 }
 
 /**
@@ -2060,6 +2085,10 @@ function regijePut() {
   rb.lanac.forEach((c, i) => {
     out.push('region put ' + c.naziv + ' ' + (i === 0 ? '*' : rb.lanac[i - 1].naziv));
   });
+  for (const p of rb.potomci) {
+    const rod = R.cvor(p.cvor.roditelj);
+    out.push('region put ' + p.cvor.naziv + ' ' + (rod ? rod.naziv : rb.lanac[rb.dno].naziv));
+  }
   out.push('region save');
   out.push('region home ' + rb.lanac[rb.dno].naziv);
   return out;
