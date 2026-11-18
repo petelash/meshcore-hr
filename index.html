@@ -2108,7 +2108,7 @@ function regijeBlok() {
   // što raditi #pmoslavina. Podregije ispod idu samo ako ih korisnik izričito
   // zatraži, za repetitor koji stvarno pokriva cijelo to područje.
   const lanac = S.regijaPut.map(id => R.cvor(id)).filter(Boolean);
-  const redovi = lanac.map((c, i) => '  '.repeat(i) + '#' + c.naziv + (i === 0 ? ' F' : ''));
+  const redovi = lanac.map((c, i) => '  '.repeat(i) + '#' + c.naziv);
   const dno = lanac.length - 1;
   const potomci = S.sPodregijama ? R.potomci(lanac[dno].id) : [];
   for (const p of potomci) {
