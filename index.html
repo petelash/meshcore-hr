@@ -1782,7 +1782,8 @@ function crtajRegije() {
       (moja && moja.rucno
         ? 'Ručno dodana podregija upisuje se <b>samo na ovaj čvor</b>. Da uđe u zajedničko stablo, ' +
           'dodaj je u adminu.'
-        : 'Pokrivaš šire područje? Odaberi višu razinu — tada čvor dobiva i sve podregije ispod nje.') +
+        : 'Upisuje se samo lanac do tvoje regije — ništa susjedno ni podređeno. ' +
+          'Pokrivaš šire područje? Odaberi višu razinu.') +
     '</div>';
 
   $('#selRazina').onchange = (e) => { S.regijaId = e.target.value; crtajRegije(); osvjeziLanac(); };
@@ -2038,13 +2039,11 @@ function naredbe() {
 /** Regije idu zasebno jer je "region load" višeredna naredba. */
 function regijeBlok() {
   if (!S.regijaPut || !S.regijaPut.length) return null;
+  // Samo lanac od korijena do vlastite regije. Nikakve susjedne ni podređene
+  // regije — čvoru u Dardi nema što raditi #pmoslavina.
   const lanac = S.regijaPut.map(id => R.cvor(id)).filter(Boolean);
   const redovi = lanac.map((c, i) => '  '.repeat(i) + '#' + c.naziv + (i === 0 ? ' F' : ''));
-  // sve podregije ispod odabrane razine
   const dno = lanac.length - 1;
-  for (const p of R.potomci(lanac[dno].id)) {
-    redovi.push('  '.repeat(dno + p.dubina) + '#' + p.cvor.naziv);
-  }
   return { redovi, home: '#' + lanac[dno].naziv, lanac, dno };
 }
 
@@ -2061,13 +2060,8 @@ function regijePut() {
   rb.lanac.forEach((c, i) => {
     out.push('region put ' + c.naziv + ' ' + (i === 0 ? '*' : rb.lanac[i - 1].naziv));
   });
-  const dno = rb.lanac[rb.dno];
-  for (const p of R.potomci(dno.id)) {
-    const rod = R.cvor(p.cvor.roditelj);
-    out.push('region put ' + p.cvor.naziv + ' ' + (rod ? rod.naziv : dno.naziv));
-  }
   out.push('region save');
-  out.push('region home ' + dno.naziv);
+  out.push('region home ' + rb.lanac[rb.dno].naziv);
   return out;
 }
 
