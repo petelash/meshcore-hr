@@ -1,0 +1,37 @@
+{
+  "verzija": 1,
+  "azurirano": "2026-11-18",
+  "stablo": [
+    {
+      "id": "eu",
+      "naziv": "eu",
+      "roditelj": null
+    },
+    {
+      "id": "croatia",
+      "naziv": "croatia",
+      "roditelj": "eu"
+    },
+    {
+      "id": "slavonija",
+      "naziv": "slavonija",
+      "roditelj": "croatia"
+    },
+    {
+      "id": "sredisnja",
+      "naziv": "sredisnja",
+      "roditelj": "croatia"
+    },
+    {
+      "id": "istralika",
+      "naziv": "istralika",
+      "roditelj": "croatia"
+    },
+    {
+      "id": "dalmacija",
+      "naziv": "dalmacija",
+      "roditelj": "croatia"
+    }
+  ],
+  "dodjele": {}
+}
