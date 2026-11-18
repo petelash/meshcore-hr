@@ -16,6 +16,7 @@
   --line-hi:rgba(255,255,255,.22); --muted:#9ca3af; --accent:#2563eb;
   --ok:#10b981; --warn:#f59e0b; --bad:#ef4444;
   --slavonija:#8bc34a; --sredisnja:#fbc02d; --istralika:#f57c00; --dalmacija:#29b6f6;
+  --mono:ui-monospace,'SFMono-Regular',Consolas,'Liberation Mono',monospace;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -1739,6 +1740,30 @@ function osvjeziInfo() {
   crtajRegije();
 }
 
+/**
+ * Ponuda razina kao stablo: lanac od korijena do općinske regije, pa sve
+ * što se grana ispod nje. Prefiks su crtice za crtanje, kao u `tree`.
+ */
+function stabloIzbora(osnovna) {
+  const lanac = R.lanac(osnovna);
+  const redci = lanac.map((c, i) => ({
+    cvor: c,
+    prefiks: i === 0 ? '' : '    '.repeat(i - 1) + '└── ',
+  }));
+
+  const hodaj = (rid, prefiks, dubina) => {
+    if (dubina > 8) return;
+    const dj = R.djeca(rid);
+    dj.forEach((d, i) => {
+      const zadnji = i === dj.length - 1;
+      redci.push({ cvor: d, prefiks: prefiks + (zadnji ? '└── ' : '├── ') });
+      hodaj(d.id, prefiks + (zadnji ? '    ' : '│   '), dubina + 1);
+    });
+  };
+  hodaj(osnovna, '    '.repeat(Math.max(0, lanac.length - 1)), 1);
+  return redci;
+}
+
 /* --- pregled i uređivanje regija prije upisa ----------------------------- */
 function crtajRegije() {
   const rz = $('#razina');
@@ -1746,9 +1771,7 @@ function crtajRegije() {
   rz.classList.remove('hidden');
 
   const osnovna = R.zaJls(S.jls);
-  // Ponuda: lanac od korijena do općinske regije, pa sve ispod nje.
-  const ponuda = R.lanac(osnovna).map((c, i) => ({ cvor: c, dubina: i }))
-    .concat(R.potomci(osnovna).map(p => ({ cvor: p.cvor, dubina: R.lanac(osnovna).length - 1 + p.dubina })));
+  const ponuda = stabloIzbora(osnovna);
   if (!ponuda.some(p => p.cvor.id === S.regijaId)) S.regijaId = osnovna;
 
   S.regijaPut = R.lanac(S.regijaId).map(c => c.id);
@@ -1757,10 +1780,24 @@ function crtajRegije() {
 
   rz.innerHTML =
     '<label class="fld">Kojoj razini čvor pripada</label>' +
-    '<select id="selRazina">' + ponuda.map(p =>
-      '<option value="' + esc(p.cvor.id) + '"' + (p.cvor.id === S.regijaId ? ' selected' : '') + '>' +
-      ' '.repeat(p.dubina * 2) + '#' + esc(p.cvor.naziv) +
-      (p.cvor.rucno ? ' (ručno)' : '') + '</option>').join('') + '</select>' +
+    '<div id="stabloRazina" class="rounded-lg scroll-y" style="background:#0b1220;' +
+      'border:1px solid var(--line);max-height:30vh;padding:.45rem 0">' +
+      ponuda.map(p => {
+        const odabran = p.cvor.id === S.regijaId;
+        return '<div class="razina-red" data-id="' + esc(p.cvor.id) + '" ' +
+          'style="display:flex;align-items:center;gap:.4rem;padding:.2rem .6rem;cursor:pointer;' +
+            'font-family:var(--mono);font-size:.78rem;line-height:1.5;white-space:pre;' +
+            (odabran ? 'background:rgba(37,99,235,.28);box-shadow:inset 2px 0 0 #60a5fa' : '') + '">' +
+          '<span style="color:rgba(255,255,255,.3)">' + esc(p.prefiks) + '</span>' +
+          '<span style="width:8px;height:8px;border-radius:2px;flex:none;background:' +
+            R.bojaZa(p.cvor.id) + '"></span>' +
+          '<span style="' + (odabran ? 'color:#fff;font-weight:600' : 'color:#cbd5e1') + '">' +
+            esc(p.cvor.naziv) + '</span>' +
+          (p.cvor.rucno ? '<span style="color:var(--warn);font-size:.7rem"> ručno</span>' : '') +
+          (odabran ? '<i class="fa-solid fa-check" style="color:#60a5fa;margin-left:auto"></i>' : '') +
+          '</div>';
+      }).join('') +
+    '</div>' +
 
     '<div class="flex gap-2 mt-2">' +
       '<button id="bNovaPod" class="btn btn-ghost btn-sm flex-1">' +
@@ -1799,11 +1836,19 @@ function crtajRegije() {
           'Pokrivaš šire područje? Odaberi višu razinu.') +
     '</div>';
 
-  $('#selRazina').onchange = (e) => {
-    S.regijaId = e.target.value;
-    S.sPodregijama = false;          // nova razina, nova odluka
-    crtajRegije(); osvjeziLanac();
-  };
+  $$('#stabloRazina .razina-red').forEach(el => {
+    el.onclick = () => {
+      S.regijaId = el.dataset.id;
+      S.sPodregijama = false;        // nova razina, nova odluka
+      crtajRegije(); osvjeziLanac();
+    };
+    el.onmouseenter = () => {
+      if (el.dataset.id !== S.regijaId) el.style.background = 'rgba(255,255,255,.06)';
+    };
+    el.onmouseleave = () => {
+      if (el.dataset.id !== S.regijaId) el.style.background = '';
+    };
+  });
   if ($('#iPodregije')) {
     $('#iPodregije').onchange = (e) => { S.sPodregijama = e.target.checked; crtajRegije(); };
   }
