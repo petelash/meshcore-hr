@@ -1,6 +1,6 @@
 {
   "verzija": 1,
-  "azurirano": "2026-11-18",
+  "azurirano": "2026-11-19",
   "stablo": [
     {
       "id": "eu",
@@ -66,6 +66,11 @@
       "id": "osijek",
       "naziv": "osijek",
       "roditelj": "slavonija"
+    },
+    {
+      "id": "zagreb",
+      "naziv": "zagreb",
+      "roditelj": "sredisnja"
     }
   ],
   "dodjele": {
