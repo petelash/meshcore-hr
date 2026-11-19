@@ -90,10 +90,10 @@ code{background:rgba(255,255,255,.08);border-radius:.3rem;padding:.08rem .35rem;
    (padding na <body>), pa gumbi na dnu koraka ostaju dohvatljivi. */
 #konzolaWrap{position:fixed;top:0;right:0;bottom:0;width:var(--kons);z-index:45}
 #konzolaWrap > div{border-top:none;border-left:1px solid var(--line-hi)}
-body{--kons:340px;transition:padding-right .15s ease}
+body{--kons:320px;transition:padding-right .15s ease}
 body.s-konzolom{padding-right:var(--kons)}
 body:not(.s-konzolom) #konzolaWrap{display:none}
-@media (max-width:1180px){
+@media (max-width:1023px){
   /* Preuska stranica za dvije kolone — konzola se vraća na dno, preko sadržaja. */
   body{--kons:0px}
   body.s-konzolom{padding-bottom:46vh}
@@ -331,7 +331,7 @@ const K = {
     this.el = $('#konzola');
     // Konzola je dio zaslona, ne skakač preko sadržaja: <body> joj ustupi desni rub.
     // Na uskom zaslonu za to nema mjesta, pa ondje stoji zatvorena dok je ne otvoriš.
-    this.prikazi(innerWidth > 1180);
+    this.prikazi(innerWidth >= 1024);
     $('#btnKonzola').onclick   = () => this.prikazi(!this.vidljiva);
     $('#konzolaClose').onclick = () => this.prikazi(false);
     $('#konzolaClear').onclick = () => { this.el.innerHTML = ''; };
