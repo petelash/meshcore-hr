@@ -255,6 +255,7 @@ const S = {
   nadogradnja: false,   // čvor već radi, mijenjamo samo firmware i čuvamo identitet
   brisanje: false,      // potpuno brisanje flasha prije upisa
   uskladi: false,       // nadogradnja: korisnik je zatražio i korake podešavanja
+  provjera: false,      // samo pročitaj što je na čvoru i usporedi sa standardom
   ploca: null,          // { ime, cip, asset }
   izdanje: null,
   cr: 8,
@@ -274,6 +275,7 @@ const S = {
 /* Nacin s kojim je stranica otvorena (?podesi, ?nadogradnja), da ga 'Ispocetka' ne gazi. */
 let POCETNI_NACIN = true;
 let POCETNI_NADOGRADNJA = false;
+let POCETNA_PROVJERA = false;
 
 /* --- Sitnice ------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -1065,6 +1067,12 @@ function gjZa(j) {
 function koraci() {
   const k = [{ id: 'tip', lbl: 'Tip čvora' }];
 
+  // Provjera samo čita čvor i uspoređuje sa standardom — ništa ne upisuje.
+  if (S.provjera) {
+    k.push({ id: 'pregled', lbl: 'Pregled postavki' });
+    return k;
+  }
+
   // Samo podešavanje: čvor već radi, pa otpadaju ploča, firmware i flashanje.
   // Ne treba nam ni koja je ploča — sve ide preko serijskog CLI-ja.
   if (!S.novi) {
@@ -1134,7 +1142,7 @@ function ispocetka(pitaj) {
       !confirm('Početi ispočetka? Sve što si dosad odabrao se briše.')) return;
   Object.assign(S, {
     korak: 0, tip: null, companionVeza: 'ble', novi: POCETNI_NACIN,
-    nadogradnja: POCETNI_NADOGRADNJA, brisanje: false, uskladi: false,
+    nadogradnja: POCETNI_NADOGRADNJA, provjera: POCETNA_PROVJERA, brisanje: false, uskladi: false,
     ploca: null, izdanje: null,
     cr: 8, crOdgovori: {}, lat: null, lon: null, jls: null,
     regijaPut: [], regijaId: null, homeId: null, ime: '', lozinka: '', owner: '',
@@ -1159,7 +1167,7 @@ function crtaj() {
   const f = {
     tip: kTip, veza: kVeza, ploca: kPloca, otafix: kOtafix, firmware: kFirmware,
     flash: kFlash, karta: kKarta, cr: kCr, postavke: kPostavke, upis: kUpis, gotovo: kGotovo,
-    kraj: kKraj,
+    kraj: kKraj, pregled: kPregled,
   }[id];
   $('#panel').innerHTML = '';
   f($('#panel'));
@@ -1210,13 +1218,14 @@ function kTip(h) {
   h.insertAdjacentHTML('beforeend',
     '<span class="logo logo-hero" role="img" aria-label="MeshCore Hrvatska"></span>');
 
-  // Prekidač načina rada: nova ploča, nadogradnja firmwarea, ili samo podešavanje.
-  const nacinSad = !S.novi ? 'radi' : (S.nadogradnja ? 'nadogradnja' : 'novi');
+  // Prekidač načina rada: nova ploča, nadogradnja, podešavanje ili samo provjera.
+  const nacinSad = S.provjera ? 'provjera' : (!S.novi ? 'radi' : (S.nadogradnja ? 'nadogradnja' : 'novi'));
   h.insertAdjacentHTML('beforeend',
-    '<div class="grid gap-2 mb-6" style="grid-template-columns:repeat(3,1fr)">' +
+    '<div class="grid gap-2 mb-6" style="grid-template-columns:repeat(2,1fr)">' +
       [['novi', 'fa-box-open', 'Nova ploča'],
        ['nadogradnja', 'fa-arrow-up-right-dots', 'Nadogradnja'],
-       ['radi', 'fa-sliders', 'Podešavanje']].map(n =>
+       ['radi', 'fa-sliders', 'Podešavanje'],
+       ['provjera', 'fa-magnifying-glass', 'Provjera postavki']].map(n =>
         '<button class="btn btn-ghost btn-sm" data-m="' + n[0] + '" style="min-width:0;' +
           'padding:.45rem .5rem;font-size:.78rem;gap:.35rem' +
           (n[0] === nacinSad ? ';background:#fff;color:var(--ink);border-color:#fff' : '') + '">' +
@@ -1224,19 +1233,24 @@ function kTip(h) {
     '</div>');
   $$('button[data-m]', h).forEach(b => b.onclick = () => {
     const m = b.dataset.m;
-    S.novi = m !== 'radi';
+    S.provjera = m === 'provjera';
+    S.novi = !(m === 'radi' || m === 'provjera');
     S.nadogradnja = m === 'nadogradnja';
     S.brisanje = false;
     S.uskladi = false;
-    if (!S.novi && S.tip === 'companion') S.tip = null;
+    if ((!S.novi || S.provjera) && S.tip === 'companion') S.tip = null;
     S.ploca = null;
     crtaj();
   });
 
   naslov(h, 1,
-    !S.novi ? 'Što podešavaš?'
-            : (S.nadogradnja ? 'Što nadograđuješ?' : 'Što postavljaš?'),
-    !S.novi
+    S.provjera ? 'Što provjeravaš?'
+      : (!S.novi ? 'Što podešavaš?'
+                 : (S.nadogradnja ? 'Što nadograđuješ?' : 'Što postavljaš?')),
+    S.provjera
+      ? 'Čitam sve postavke sa čvora i uspoređujem ih s hrvatskim standardom. ' +
+        'Ništa se ne upisuje — samo piše što odudara i što bi trebalo biti.'
+      : !S.novi
       ? 'Čvor na kojem MeshCore već radi. Flashanje, ploča i firmware otpadaju — ' +
         'spajaš ga kabelom i wizard mu samo upiše hrvatske postavke.'
       : S.nadogradnja
@@ -2367,12 +2381,31 @@ function naredbeSve() {
   return redci.join('\n');
 }
 
+/**
+ * Rastavi odgovor na "get radio": "> 869.6179809,62.5,8,5".
+ * Čvor vraća frekvenciju kvantiziranu na korak svog čipa, pa doslovna
+ * usporedba teksta s "869.618" nikad ne prođe.
+ */
+function brojeviRadija(odg) {
+  const m = /([\d.]+)\s*,\s*([\d.]+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(odg || '');
+  return m ? { freq: +m[1], bw: +m[2], sf: +m[3], cr: +m[4] } : null;
+}
+
+/** Odgovara li radio hrvatskom standardu? `cr` null = bilo koji iz raspona 5–8. */
+function radioOdgovara(odg, cr) {
+  const r = brojeviRadija(odg);
+  if (!r) return false;
+  if (Math.abs(r.freq - parseFloat(HR.radio.freq)) > 0.002) return false;
+  if (Math.abs(r.bw - parseFloat(HR.radio.bw)) > 0.01) return false;
+  if (r.sf !== parseInt(HR.radio.sf, 10)) return false;
+  return cr == null ? (r.cr >= 5 && r.cr <= 8) : r.cr === cr;
+}
+
 function provjere() {
   const rep = S.tip === 'repeater';
-  const r = HR.radio;
   const p = [
     ['get name',        (rep ? HR.prefiks : '') + S.ime, 'ime'],
-    ['get radio',       r.freq,                           'radio'],
+    ['get radio',       (odg) => radioOdgovara(odg, S.cr), 'radio'],
     ['get tx',          String(HR.tx),                    'snaga'],
     ['get path.hash.mode', String(HR.pathHashMode),       'path.hash.mode'],
     ['get loop.detect', HR.loopDetect,                    'loop.detect'],
@@ -2508,9 +2541,21 @@ async function upisi(nar, rb) {
       if (!imaGps) K.red('ploča nema GPS naredbe — preskočeno; najava nosi upisane koordinate', 'sys');
     }
 
+    let satOdbijen = false;
     for (const c of nar) {
       if (!imaGps && c.n.startsWith('gps ')) { napredak(); continue; }
-      await Serijski.naredba(c.n); napredak();
+      const odg = (await Serijski.naredba(c.n)).join(' ');
+      // "time" zna biti odbijen jer čvorov sat već ide naprijed; to nije kvar,
+      // ali mora se vidjeti i izvan konzole, jer provjera sat ne čita.
+      if (c.n.startsWith('time ') && /err/i.test(odg)) satOdbijen = true;
+      napredak();
+    }
+    if (satOdbijen) {
+      rez.insertAdjacentHTML('beforeend',
+        '<div class="note warn mb-4"><b>Sat nije postavljen.</b> Čvor ima noviji sat od ovog ' +
+        'računala, a firmware ga ne da vraćati unatrag. Najčešće nije problem — vrijeme se ' +
+        'usklađuje i iz mreže. Ako baš trebaš točan sat, naredba <code>clkreboot</code> ga ' +
+        'poništi i pokrene ploču, pa onda ponovi upis.</div>');
     }
 
     // Regije idu jedna po jedna, kao i u ručnom ispisu: "region put" odgovara
@@ -2526,7 +2571,9 @@ async function upisi(nar, rb) {
     let lose = 0;
     for (const [cmd, ocekivano, naziv] of provjere()) {
       const odg = (await Serijski.naredba(cmd)).join(' ');
-      const ok = odg.toLowerCase().includes(String(ocekivano).toLowerCase());
+      const ok = typeof ocekivano === 'function'
+        ? !!ocekivano(odg)
+        : odg.toLowerCase().includes(String(ocekivano).toLowerCase());
       if (!ok) lose++;
       pr.insertAdjacentHTML('beforeend',
         '<div class="flex items-center gap-2 text-sm">' +
@@ -2617,6 +2664,202 @@ async function ukljuciStednju(naredba) {
     }
     await posalji();
   };
+}
+
+/* ===========================================================================
+   11 Pregled postavki — čitanje čvora i usporedba s hrvatskim standardom
+   =========================================================================== */
+
+/** Iz odgovora čvora izvuci samu vrijednost: "get tx  -> > 22" → "22". */
+function vrijednostIz(odg) {
+  let t = String(odg || '');
+  const i = t.lastIndexOf('->');
+  if (i >= 0) t = t.slice(i + 2);
+  return t.replace(/^[\s>]+/, '').trim();
+}
+
+const _broj = (v) => parseFloat(String(v).replace(',', '.'));
+
+/**
+ * Pravila hrvatskog standarda, svako sa svojom naredbom za čitanje.
+ * `ok` dobiva očišćenu vrijednost, `popravak` je naredba koja je ispravlja
+ * (null kad se ne da popraviti bez ostatka wizarda — lokacija, regija, ime).
+ */
+function pravilaStandarda() {
+  const rep = S.tip === 'repeater';
+  const r = HR.radio;
+  const jednako = (x) => (v) => String(v).toLowerCase() === String(x).toLowerCase();
+  const brojJednak = (x) => (v) => Math.abs(_broj(v) - x) < 0.001;
+
+  const p = [
+    { naziv: 'firmware', cmd: 'ver', treba: HR.minVerzija.join('.') + ' ili noviji',
+      ok: (v) => !verzijaManjaOd(verzijaNiza(v), HR.minVerzija) },
+    { naziv: 'ime čvora', cmd: 'get name', treba: rep ? 'počinje s "HR "' : 'bez prefiksa',
+      ok: (v) => rep ? /^HR\s/.test(v) : true,
+      savjet: rep ? 'Preimenuj ga kroz Podešavanje — hrvatski repetitori nose prefiks HR.' : null },
+    { naziv: 'radio', cmd: 'get radio',
+      treba: r.freq + ' MHz, ' + r.bw + ' kHz, SF' + r.sf + ', CR 5–8',
+      ok: (v, odg) => radioOdgovara(odg, null),
+      popravak: 'set radio ' + r.freq + ',' + r.bw + ',' + r.sf + ',' + r.cr },
+    { naziv: 'snaga odašiljanja', cmd: 'get tx', treba: String(HR.tx),
+      ok: brojJednak(HR.tx), popravak: 'set tx ' + HR.tx },
+    { naziv: 'duty cycle', cmd: 'get dutycycle', treba: HR.dutycycle + ' %',
+      ok: brojJednak(HR.dutycycle), popravak: 'set dutycycle ' + HR.dutycycle },
+    { naziv: 'prosljeđivanje', cmd: 'get repeat', treba: 'on',
+      ok: (v) => /on|1|true/i.test(v), popravak: 'set repeat on' },
+    { naziv: 'path.hash.mode', cmd: 'get path.hash.mode', treba: String(HR.pathHashMode),
+      ok: brojJednak(HR.pathHashMode), popravak: 'set path.hash.mode ' + HR.pathHashMode },
+    { naziv: 'loop.detect', cmd: 'get loop.detect', treba: HR.loopDetect,
+      ok: jednako(HR.loopDetect), popravak: 'set loop.detect ' + HR.loopDetect },
+    { naziv: 'lokalna najava', cmd: 'get advert.interval', treba: HR.advertInterval + ' min',
+      ok: brojJednak(HR.advertInterval), popravak: 'set advert.interval ' + HR.advertInterval },
+    { naziv: 'najava kroz mrežu', cmd: 'get flood.advert.interval', treba: HR.floodAdvertInterval + ' h',
+      ok: brojJednak(HR.floodAdvertInterval), popravak: 'set flood.advert.interval ' + HR.floodAdvertInterval },
+    { naziv: 'doseg vlastite najave', cmd: 'get flood.max.advert', treba: String(HR.floodMaxAdvert),
+      ok: brojJednak(HR.floodMaxAdvert), popravak: 'set flood.max.advert ' + HR.floodMaxAdvert },
+    { naziv: 'doseg tuđeg prometa', cmd: 'get flood.max', treba: String(HR.floodMax),
+      ok: brojJednak(HR.floodMax), popravak: 'set flood.max ' + HR.floodMax },
+  ];
+
+  if (rep) {
+    p.push({ naziv: 'štednja energije', cmd: 'powersaving', treba: 'on',
+      ok: (v) => /on/i.test(v), popravak: 'powersaving on' });
+  }
+  p.push(
+    { naziv: 'zemljopisna širina', cmd: 'get lat', treba: 'postavljena',
+      ok: (v) => Math.abs(_broj(v)) > 0.0001,
+      savjet: 'Bez koordinata čvor se ne vidi na karti mreže. Postavi ih kroz Podešavanje.' },
+    { naziv: 'zemljopisna dužina', cmd: 'get lon', treba: 'postavljena',
+      ok: (v) => Math.abs(_broj(v)) > 0.0001, savjet: null },
+    { naziv: 'domaća regija', cmd: 'region home', treba: 'regija općine u kojoj čvor stoji',
+      ok: (v) => { const m = /home is\s+(\S+)/i.exec(v); return !!m && m[1] !== '*'; },
+      savjet: 'Regije se upisuju kroz Podešavanje, prema pribadači na karti.' }
+  );
+  return p;
+}
+
+function kPregled(h) {
+  naslov(h, 2, 'Pregled postavki',
+    'Čitam čvor i uspoređujem ga s hrvatskim standardom. Ništa se ne upisuje.');
+
+  h.insertAdjacentHTML('beforeend',
+    (!Serijski.podrzan()
+      ? '<div class="note bad mb-4"><b>Ovaj preglednik nema Web Serial.</b><br>' +
+        'Treba ti Chrome, Edge ili Opera na računalu.</div>' : '') +
+    '<div class="card p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">' +
+      '<div><div class="font-semibold">' + esc(ULOGA[S.tip].naziv) + '</div>' +
+      '<div class="text-sm" style="color:var(--muted)">Spoji ploču USB kabelom.</div></div>' +
+      '<button id="bCitaj" class="btn btn-primary"' + (Serijski.podrzan() ? '' : ' disabled') + '>' +
+        '<i class="fa-solid fa-magnifying-glass"></i> Spoji i pročitaj</button>' +
+    '</div>' +
+    '<div class="bar hidden mb-4" id="pgBar"><div></div></div>' +
+    '<div id="pgRez"></div>');
+
+  navRed(h, { dalje: null });
+  $('#bCitaj').onclick = () => procitajPostavke();
+}
+
+async function procitajPostavke() {
+  const btn = $('#bCitaj'), bar = $('#pgBar'), rez = $('#pgRez');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch spin"></i> čitam…';
+  bar.classList.remove('hidden');
+  K.otvori();
+  rez.innerHTML = '';
+
+  const pravila = pravilaStandarda();
+  let gotovo = 0;
+  const napredak = () => {
+    bar.firstElementChild.style.width = Math.round(++gotovo / (pravila.length + 1) * 100) + '%';
+  };
+
+  try {
+    if (!Serijski.spojen) await Serijski.spoji();
+
+    const redci = [];
+    for (const pr of pravila) {
+      const odg = (await Serijski.naredba(pr.cmd)).join(' ');
+      const v = vrijednostIz(odg);
+      redci.push({ pr, v, ok: !!pr.ok(v, odg) });
+      napredak();
+    }
+    const stablo = (await Serijski.naredba('region')).join('\n');
+    napredak();
+
+    const lose = redci.filter(x => !x.ok);
+    rez.insertAdjacentHTML('beforeend',
+      '<div class="note ' + (lose.length ? 'warn' : 'ok') + ' mb-4">' +
+      (lose.length
+        ? '<b>' + lose.length + ' ' + (lose.length === 1 ? 'postavka odudara' : 'postavki odudara') +
+          ' od hrvatskog standarda.</b> Ispod piše što i koliko.'
+        : '<b>Čvor je usklađen s hrvatskim standardom.</b> Sve pročitane postavke odgovaraju.') +
+      '</div>' +
+      '<div class="card p-4"><div class="font-semibold mb-3">Pročitano s čvora</div>' +
+      '<div class="grid gap-2">' +
+        redci.map(x =>
+          '<div class="flex items-center gap-2 text-sm">' +
+          '<span class="chip ' + (x.ok ? 'ok' : 'bad') + '">' +
+            '<i class="fa-solid fa-' + (x.ok ? 'check' : 'xmark') + '"></i></span>' +
+          '<span class="font-medium" style="min-width:11rem">' + esc(x.pr.naziv) + '</span>' +
+          '<span class="font-mono text-xs truncate" style="max-width:40%">' +
+            esc(x.v || '(bez odgovora)') + '</span>' +
+          (x.ok ? '' :
+            '<span class="ml-auto text-xs" style="color:var(--warn)">treba: ' +
+            esc(x.pr.treba) + '</span>') +
+          '</div>').join('') +
+      '</div></div>' +
+      '<div class="card p-4 mt-4"><div class="font-semibold mb-2">Stablo regija</div>' +
+      '<pre class="text-xs scroll-y" style="max-height:20vh;color:#93c5fd;white-space:pre-wrap">' +
+        esc(stablo || '(prazno)') + '</pre>' +
+      '<div class="hint"><code>F</code> označava regiju kojoj je flood dopušten, ' +
+        '<code>^</code> domaću regiju čvora.</div></div>');
+
+    const popravci = lose.filter(x => x.pr.popravak).map(x => x.pr.popravak);
+    const savjeti = lose.filter(x => x.pr.savjet).map(x => x.pr.savjet);
+
+    if (popravci.length || savjeti.length) {
+      rez.insertAdjacentHTML('beforeend',
+        '<div class="card p-4 mt-4"><div class="font-semibold mb-2">Preporuka</div>' +
+        (popravci.length
+          ? '<div class="hint mb-2">Ove naredbe vraćaju čvor na standard. Možeš ih poslati ' +
+            'odavde ili prepisati sam.</div>' +
+            '<pre id="pgNaredbe" class="text-xs scroll-y" style="max-height:24vh;color:#93c5fd;' +
+              'white-space:pre-wrap">' + esc(popravci.join('\n')) + '</pre>' +
+            '<button id="bUskladi" class="btn btn-primary w-full mt-3">' +
+              '<i class="fa-solid fa-wand-magic-sparkles"></i> Pošalji ove naredbe</button>'
+          : '') +
+        (savjeti.length
+          ? '<ul class="text-sm mt-3 space-y-1" style="color:var(--muted);padding-left:1.1rem">' +
+            savjeti.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>'
+          : '') +
+        '</div>');
+
+      if ($('#bUskladi')) $('#bUskladi').onclick = async () => {
+        const b = $('#bUskladi');
+        b.disabled = true;
+        b.innerHTML = '<i class="fa-solid fa-circle-notch spin"></i> šaljem…';
+        let pukla = false;
+        for (const c of popravci) {
+          try { await Serijski.naredba(c); } catch (e) { pukla = true; break; }
+        }
+        b.outerHTML = '<div class="note ' + (pukla ? 'warn' : 'ok') + ' mt-3">' +
+          (pukla
+            ? '<b>Veza je pukla usred slanja.</b> Pogledaj konzolu dokle je stiglo.'
+            : '<b>Poslano.</b> Radio postavke traže ponovno pokretanje — pošalji ' +
+              '<code>reboot</code> iz konzole ili pritisni RESET.') + '</div>';
+      };
+    }
+
+    bar.firstElementChild.style.width = '100%';
+    btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Pročitaj ponovno';
+    btn.disabled = false;
+  } catch (e) {
+    K.red(String(e.message || e), 'err');
+    rez.insertAdjacentHTML('beforeend',
+      '<div class="note bad">' + esc(String(e.message || e)) + '</div>');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Pokušaj ponovno';
+  }
 }
 
 
@@ -3006,6 +3249,7 @@ const A = {
   // izravan ulaz u pojedini nacin rada
   if (par.has('podesi')) { S.novi = false; POCETNI_NACIN = false; }
   if (par.has('nadogradnja')) { S.nadogradnja = true; POCETNI_NADOGRADNJA = true; }
+  if (par.has('provjera')) { S.provjera = true; S.novi = false; POCETNI_NACIN = false; POCETNA_PROVJERA = true; }
   const admin = par.has('admin');
   if (admin) {
     $('#wizard').classList.add('hidden');
