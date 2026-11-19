@@ -2350,6 +2350,10 @@ function provjere() {
     ['get flood.max',   String(HR.floodMax),              'doseg tuđeg prometa'],
   ];
   if (S.lat != null) p.push(['get lat', String(S.lat).slice(0, 6), 'širina']);
+  // "get dutycycle" postoji od 1.15; prije se zvao "af" i vraća nešto drugo.
+  if (!verzijaManjaOd(S.verzija, [1, 15, 0])) {
+    p.push(['get dutycycle', String(HR.dutycycle), 'duty cycle']);
+  }
   const rb = regijeBlok();
   if (rb) p.push(['region home', rb.dom.naziv, 'domaća regija']);
   return p;
