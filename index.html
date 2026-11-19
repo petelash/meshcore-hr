@@ -2258,8 +2258,18 @@ function naredbe() {
     add('gps off', 'GPS ugašen (ako postoji)');
     add('gps advert prefs', 'javlja spremljenu poziciju');
   }
-  if (rep) add('powersaving on', 'štednja energije');
   if (S.postaviSat) add('time ' + Math.floor(Date.now() / 1000), 'sat');
+  return out;
+}
+
+/* Naredbe koje idu posljednje, kad je sve ostalo upisano i pročitano natrag.
+   "powersaving on" na nRF52 stupa na snagu odmah ("on - Immediate effect"),
+   ploča zaspi i USB se odspoji — sve poslano nakon toga propada u prazno.
+   Na ESP32 ima dvije minute, ali red je isti za obje. */
+function naredbeZavrsne() {
+  const out = ['advert'];
+  if (S.tip === 'repeater') out.push('powersaving on');
+  out.push('reboot');
   return out;
 }
 
@@ -2297,25 +2307,12 @@ function regijePut() {
   return out;
 }
 
-/* Ono što wizard šalje kabelom. Isti niz kao i ručni ispis — "region load"
-   se ne koristi: on je interaktivan, briše zatečeno stablo i razinu čita po
-   broju razmaka na početku retka (jedan razmak = jedna razina), pa je prelako
-   poslati blok koji firmware tiho preskači. "region put" je obična naredba,
-   odgovara na svaku, dodaje u postojeće stablo i odmah dopušta flood. */
-function naredbeKabel() {
+/* Cijeli niz naredbi, isti za kabel i za ručni upis na daljinu. */
+function naredbeSve() {
   const redci = naredbe().map(x => x.n);
   const reg = regijePut();
   if (reg.length) redci.push('', ...reg);
-  redci.push('', 'advert', 'reboot');
-  return redci.join('\n');
-}
-
-/** Cijeli popis naredbi kao tekst, za ručni upis preko udaljene veze. */
-function naredbeTekst() {
-  const redci = naredbe().map(x => x.n);
-  const reg = regijePut();
-  if (reg.length) redci.push('', ...reg);
-  redci.push('', 'advert', 'reboot');
+  redci.push('', ...naredbeZavrsne());
   return redci.join('\n');
 }
 
@@ -2333,7 +2330,6 @@ function provjere() {
     ['get flood.max',   String(HR.floodMax),              'doseg tuđeg prometa'],
   ];
   if (S.lat != null) p.push(['get lat', String(S.lat).slice(0, 6), 'širina']);
-  if (rep) p.push(['powersaving', 'on', 'štednja energije']);
   const rb = regijeBlok();
   if (rb) p.push(['region home', rb.dom.naziv, 'domaća regija']);
   return p;
@@ -2364,16 +2360,13 @@ function kUpis(h) {
     '</div>' +
     '<div id="upRez"></div>' +
     '<div class="card p-4 mt-4">' +
-      '<div class="flex items-center justify-between gap-3 mb-3 flex-wrap">' +
-        '<div class="font-semibold">Naredbe</div>' +
-        '<div class="flex gap-1">' +
-          '<button class="btn btn-ghost btn-sm" data-nacin="kabel">' +
-            '<i class="fa-solid fa-plug"></i> Kabelom</button>' +
-          '<button class="btn btn-ghost btn-sm" data-nacin="rucno">' +
-            '<i class="fa-solid fa-keyboard"></i> Ručni upis</button>' +
-        '</div>' +
-      '</div>' +
-      '<div id="narObjasnjenje" class="note mb-3" style="font-size:.84rem"></div>' +
+      '<div class="font-semibold mb-3">Naredbe</div>' +
+      '<div class="note mb-3" style="font-size:.84rem">Isti niz wizard šalje kabelom. ' +
+        'Za upis kroz mobilnu aplikaciju ili udaljeni CLI prepiši ga redom.<br>' +
+        '<code>gps</code> naredbe postoje samo na pločama s GPS-om — drugdje jave ' +
+        '<i>Unknown command</i> i smiju se preskočiti; najava i tako nosi upisane ' +
+        'koordinate.<br><code>powersaving on</code> je namjerno posljednji: nRF52 nakon ' +
+        'njega zaspi i veza pukne, pa sve poslano poslije propada u prazno.</div>' +
       '<pre id="rucneNaredbe" class="text-xs scroll-y" ' +
         'style="max-height:42vh;color:#93c5fd;white-space:pre-wrap"></pre>' +
       '<div class="flex gap-2 mt-3">' +
@@ -2384,33 +2377,12 @@ function kUpis(h) {
       '</div>' +
     '</div>');
 
-  // Prekidač između onoga što wizard šalje kabelom i onoga za ručni upis.
-  S.narNacin = S.narNacin || 'rucno';
-  const crtajNaredbe = () => {
-    const rucno = S.narNacin === 'rucno';
-    $$('#panel button[data-nacin]').forEach(b => {
-      const aktivan = b.dataset.nacin === S.narNacin;
-      b.style.background = aktivan ? '#fff' : '';
-      b.style.color = aktivan ? 'var(--ink)' : '';
-      b.style.borderColor = aktivan ? '#fff' : '';
-    });
-    $('#narObjasnjenje').innerHTML = rucno
-      ? 'Za upis kroz mobilnu aplikaciju ili udaljeni CLI, gdje naredbe tipkaš sam. ' +
-        'Regije idu kroz <code>region put</code>, jednu po jednu, jer je ' +
-        '<code>region load</code> interaktivan i na daljinu ne radi.'
-      : 'Točno ovo wizard šalje kad ga spojiš kabelom. Regije idu kroz ' +
-        '<code>region load</code>, koji prima cijelo stablo odjednom.';
-    $('#rucneNaredbe').textContent = rucno ? naredbeTekst() : naredbeKabel();
-  };
-  $$('#panel button[data-nacin]').forEach(b => b.onclick = () => {
-    S.narNacin = b.dataset.nacin; crtajNaredbe();
-  });
-  crtajNaredbe();
+  $('#rucneNaredbe').textContent = naredbeSve();
 
   const kopirajGumb = $('#bKopiraj');
   if (kopirajGumb) {
     kopirajGumb.onclick = async () => {
-      const t = S.narNacin === 'kabel' ? naredbeKabel() : naredbeTekst();
+      const t = naredbeSve();
       try {
         await navigator.clipboard.writeText(t);
       } catch (e) {
@@ -2428,7 +2400,7 @@ function kUpis(h) {
   const txtGumb = $('#bSpremiTxt');
   if (txtGumb) {
     txtGumb.onclick = () => {
-      const tekst = S.narNacin === 'kabel' ? naredbeKabel() : naredbeTekst();
+      const tekst = naredbeSve();
       const b = new Blob([tekst], { type: 'text/plain;charset=utf-8' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(b);
@@ -2452,7 +2424,8 @@ async function upisi(nar, rb) {
   rez.innerHTML = '';
 
   const regNar = regijePut();
-  const ukupno = nar.length + regNar.length + provjere().length + 2;
+  const zavrsne = naredbeZavrsne().filter(c => c !== 'reboot');
+  const ukupno = nar.length + regNar.length + provjere().length + zavrsne.length + 2;
   let gotovo = 0;
   const napredak = () => { bar.firstElementChild.style.width = Math.round(++gotovo / ukupno * 100) + '%'; };
 
@@ -2470,7 +2443,19 @@ async function upisi(nar, rb) {
         'Preporučujem da prvo flashaš novi firmware.</div>');
     }
 
-    for (const c of nar) { await Serijski.naredba(c.n); napredak(); }
+    // Ploče bez GPS-a nemaju te naredbe (ENV_INCLUDE_GPS), pa bi javile
+    // "Unknown command". Politika najave je ionako "prefs", tj. upisane koordinate.
+    let imaGps = true;
+    if (nar.some(c => c.n.startsWith('gps '))) {
+      const odg = (await Serijski.naredba('gps advert')).join(' ');
+      imaGps = !/unknown/i.test(odg);
+      if (!imaGps) K.red('ploča nema GPS naredbe — preskočeno; najava nosi upisane koordinate', 'sys');
+    }
+
+    for (const c of nar) {
+      if (!imaGps && c.n.startsWith('gps ')) { napredak(); continue; }
+      await Serijski.naredba(c.n); napredak();
+    }
 
     // Regije idu jedna po jedna, kao i u ručnom ispisu: "region put" odgovara
     // na svaku naredbu, pa se u konzoli odmah vidi ako koja ne prođe.
@@ -2497,13 +2482,25 @@ async function upisi(nar, rb) {
       napredak();
     }
 
-    await Serijski.naredba('advert'); napredak();
+    // Tek sad završne: "advert", pa "powersaving on" koji na nRF52 odmah
+    // uspava ploču i prekine USB — zato je posljednji i zato grešku prešućujem.
+    for (const c of zavrsne) {
+      if (c === 'powersaving on') {
+        K.red('uključujem štednju — na nRF52 ploča odmah zaspi i veza pukne, to je uredu', 'sys');
+        try { await Serijski.naredba(c); } catch (e) {}
+      } else {
+        await Serijski.naredba(c);
+      }
+      napredak();
+    }
     rez.insertAdjacentHTML('beforeend',
       '<div class="note ' + (lose ? 'warn' : 'ok') + ' mt-4">' +
       (lose ? '<b>' + lose + ' postavki nije potvrđeno.</b> Provjeri ih u konzoli prije nego ' +
               'odneseš čvor na lokaciju.'
             : '<b>Sve je upisano i potvrđeno.</b> Čvor je poslao najavu mreži.') +
-      '<br>Preostaje ponovno pokretanje da radio postavke stupe na snagu.</div>' +
+      '<br>Preostaje ponovno pokretanje da radio postavke stupe na snagu. ' +
+      'Ako je veza pukla kad sam uključio štednju, gumb neće proći — pritisni RESET na ploči, ' +
+      'postavke su već spremljene.</div>' +
       '<button id="bReboot" class="btn btn-primary w-full mt-3">' +
       '<i class="fa-solid fa-power-off"></i> Ponovno pokreni čvor</button>');
 
