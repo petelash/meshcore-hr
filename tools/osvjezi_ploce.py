@@ -57,9 +57,15 @@ def main():
         slike = re.findall(r"src='([^']+)'", dev.get('tooltip', '') or '')
         slika = slike[0] if slike else (dev.get('icon') or '')
         ver, bploce = bootloader(dev)
+        # nRF52 "format" firmware koji obrise vanjski flash; katalog ga vodi kao
+        # .zip za DFU, a isti paket postoji i kao .uf2 za prevlacenje na disk.
+        er = dev.get('erase')
+        er = re.sub(r'\.zip$', '.uf2', str(er)) if er else None
 
         def unos():
             u = {'n': dev.get('name', ''), 'm': dev.get('maker', ''), 's': slika}
+            if er:
+                u['e'] = er
             if ver:
                 u['ov'] = ver
                 u['ob'] = bploce
