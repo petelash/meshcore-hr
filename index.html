@@ -86,6 +86,20 @@ code{background:rgba(255,255,255,.08);border-radius:.3rem;padding:.08rem .35rem;
 #konzola{font-family:ui-monospace,'SFMono-Regular',Consolas,monospace;font-size:.8rem;
   line-height:1.55;white-space:pre-wrap;word-break:break-word}
 .k-tx{color:#93c5fd}.k-rx{color:#d1d5db}.k-err{color:#fca5a5}.k-ok{color:#6ee7b7}.k-sys{color:#6b7280}
+/* Konzola stoji uz desni rub i ništa ne prekriva — stranica joj ustupi mjesto
+   (padding na <body>), pa gumbi na dnu koraka ostaju dohvatljivi. */
+#konzolaWrap{position:fixed;top:0;right:0;bottom:0;width:var(--kons);z-index:45}
+#konzolaWrap > div{border-top:none;border-left:1px solid var(--line-hi)}
+body{--kons:340px;transition:padding-right .15s ease}
+body.s-konzolom{padding-right:var(--kons)}
+body:not(.s-konzolom) #konzolaWrap{display:none}
+@media (max-width:1180px){
+  /* Preuska stranica za dvije kolone — konzola se vraća na dno, preko sadržaja. */
+  body{--kons:0px}
+  body.s-konzolom{padding-bottom:46vh}
+  #konzolaWrap{top:auto;left:0;width:auto;height:46vh}
+  #konzolaWrap > div{border-left:none;border-top:1px solid var(--line-hi)}
+}
 .leaflet-container{background:#0b1220;border-radius:.75rem;font-family:inherit}
 /* OSM pločice prebojene u tamno da se uklope, bez gubitka čitljivosti natpisa */
 .karta-tamna .leaflet-tile-pane{
@@ -151,15 +165,17 @@ code{background:rgba(255,255,255,.08);border-radius:.3rem;padding:.08rem .35rem;
 <main id="admin" class="hidden max-w-[1500px] mx-auto px-4 py-5"></main>
 
 <!-- KONZOLA -->
-<div id="konzolaWrap" class="hidden fixed inset-x-0 bottom-0 z-50" style="height:46vh">
+<div id="konzolaWrap">
   <div class="h-full flex flex-col" style="background:#0b1220;border-top:1px solid var(--line-hi)">
     <div class="flex items-center justify-between px-4 py-2" style="border-bottom:1px solid var(--line)">
       <div class="flex items-center gap-2 text-sm font-semibold">
         <i class="fa-solid fa-terminal" style="color:var(--accent)"></i> Serijska konzola
       </div>
-      <div class="flex items-center gap-2">
-        <button id="konzolaClear" class="btn btn-ghost btn-sm"><i class="fa-solid fa-eraser"></i> Očisti</button>
-        <button id="konzolaClose" class="btn btn-ghost btn-sm"><i class="fa-solid fa-xmark"></i></button>
+      <div class="flex items-center gap-1">
+        <button id="konzolaClear" class="btn btn-ghost btn-sm" title="Očisti">
+          <i class="fa-solid fa-eraser"></i></button>
+        <button id="konzolaClose" class="btn btn-ghost btn-sm" title="Sakrij">
+          <i class="fa-solid fa-xmark"></i></button>
       </div>
     </div>
     <div id="konzola" class="flex-1 scroll-y px-4 py-3"></div>
@@ -310,11 +326,14 @@ const spava = ms => new Promise(r => setTimeout(r, ms));
    Konzola
    =========================================================================== */
 const K = {
-  el: null,
+  el: null, vidljiva: false,
   init() {
     this.el = $('#konzola');
-    $('#btnKonzola').onclick   = () => $('#konzolaWrap').classList.toggle('hidden');
-    $('#konzolaClose').onclick = () => $('#konzolaWrap').classList.add('hidden');
+    // Konzola je dio zaslona, ne skakač preko sadržaja: <body> joj ustupi desni rub.
+    // Na uskom zaslonu za to nema mjesta, pa ondje stoji zatvorena dok je ne otvoriš.
+    this.prikazi(innerWidth > 1180);
+    $('#btnKonzola').onclick   = () => this.prikazi(!this.vidljiva);
+    $('#konzolaClose').onclick = () => this.prikazi(false);
     $('#konzolaClear').onclick = () => { this.el.innerHTML = ''; };
     $('#konzolaForm').onsubmit = async (e) => {
       e.preventDefault();
@@ -335,7 +354,16 @@ const K = {
     this.el.appendChild(d);
     this.el.scrollTop = this.el.scrollHeight;
   },
-  otvori() { $('#konzolaWrap').classList.remove('hidden'); },
+  prikazi(da) {
+    this.vidljiva = !!da;
+    document.body.classList.toggle('s-konzolom', this.vidljiva);
+    const b = $('#btnKonzola');
+    if (b) b.classList.toggle('btn-primary', this.vidljiva);
+    if (this.vidljiva && this.el) this.el.scrollTop = this.el.scrollHeight;
+    // Karta mora preračunati svoju veličinu kad joj se promijeni širina.
+    if (typeof karta !== 'undefined' && karta) setTimeout(() => karta.invalidateSize(), 180);
+  },
+  otvori() { this.prikazi(true); },
 };
 
 /* ===========================================================================
@@ -2282,15 +2310,16 @@ function naredbe() {
   return out;
 }
 
-/* Naredbe koje idu posljednje, kad je sve ostalo upisano i pročitano natrag.
-   "powersaving on" na nRF52 stupa na snagu odmah ("on - Immediate effect"),
-   ploča zaspi i USB se odspoji — sve poslano nakon toga propada u prazno.
-   Na ESP32 ima dvije minute, ali red je isti za obje. */
+/* Najava i ponovno pokretanje, kad je sve upisano i pročitano natrag. */
 function naredbeZavrsne() {
-  const out = ['advert'];
-  if (S.tip === 'repeater') out.push('powersaving on');
-  out.push('reboot');
-  return out;
+  return ['advert', 'reboot'];
+}
+
+/* Štednja ide zasebno, nakon što se ploča digne iz "reboot". Na nRF52 stupa na
+   snagu odmah ("on - Immediate effect"): ploča zaspi i USB se odspoji, pa sve
+   poslano poslije propada u prazno. Na ESP32 ima dvije minute, red je isti. */
+function naredbaStednja() {
+  return S.tip === 'repeater' ? 'powersaving on' : null;
 }
 
 /** Regije idu zasebno jer je "region load" višeredna naredba. */
@@ -2333,6 +2362,8 @@ function naredbeSve() {
   const reg = regijePut();
   if (reg.length) redci.push('', ...reg);
   redci.push('', ...naredbeZavrsne());
+  const st = naredbaStednja();
+  if (st) redci.push('', st);
   return redci.join('\n');
 }
 
@@ -2389,8 +2420,9 @@ function kUpis(h) {
         'Za upis kroz mobilnu aplikaciju ili udaljeni CLI prepiši ga redom.<br>' +
         '<code>gps</code> naredbe postoje samo na pločama s GPS-om — drugdje jave ' +
         '<i>Unknown command</i> i smiju se preskočiti; najava i tako nosi upisane ' +
-        'koordinate.<br><code>powersaving on</code> je namjerno posljednji: nRF52 nakon ' +
-        'njega zaspi i veza pukne, pa sve poslano poslije propada u prazno.</div>' +
+        'koordinate.<br><code>powersaving on</code> ide tek nakon što se ploča digne ' +
+        'iz <code>reboot</code>: nRF52 nakon njega odmah zaspi i veza pukne, pa sve ' +
+        'poslano poslije propada u prazno.</div>' +
       '<pre id="rucneNaredbe" class="text-xs scroll-y" ' +
         'style="max-height:42vh;color:#93c5fd;white-space:pre-wrap"></pre>' +
       '<div class="flex gap-2 mt-3">' +
@@ -2448,7 +2480,7 @@ async function upisi(nar, rb) {
   rez.innerHTML = '';
 
   const regNar = regijePut();
-  const zavrsne = naredbeZavrsne().filter(c => c !== 'reboot');
+  const zavrsne = naredbeZavrsne();   // 'advert' pa 'reboot'
   const ukupno = nar.length + regNar.length + provjere().length + zavrsne.length + 2;
   let gotovo = 0;
   const napredak = () => { bar.firstElementChild.style.width = Math.round(++gotovo / ukupno * 100) + '%'; };
@@ -2506,47 +2538,30 @@ async function upisi(nar, rb) {
       napredak();
     }
 
-    // Tek sad završne: "advert", pa "powersaving on" koji na nRF52 odmah
-    // uspava ploču i prekine USB — zato je posljednji i zato grešku prešućujem.
-    let vezaPukla = false;
+    // Najava, pa ponovno pokretanje da radio postavke stupe na snagu.
     for (const c of zavrsne) {
-      if (c === 'powersaving on') {
-        K.red('uključujem štednju — na nRF52 ploča odmah zaspi i veza pukne, to je uredu', 'sys');
-      }
       try {
         await Serijski.naredba(c);
       } catch (e) {
-        vezaPukla = true;
-        K.red('ploča više ne odgovara — sve prije ovoga je upisano i spremljeno', 'sys');
+        K.red('plo\u010da vi\u0161e ne odgovara \u2014 sve prije ovoga je upisano i spremljeno', 'sys');
         break;
       }
       napredak();
     }
     bar.firstElementChild.style.width = '100%';
+
     rez.insertAdjacentHTML('beforeend',
       '<div class="note ' + (lose ? 'warn' : 'ok') + ' mt-4">' +
-      (lose ? '<b>' + lose + ' postavki nije potvrđeno.</b> Provjeri ih u konzoli prije nego ' +
-              'odneseš čvor na lokaciju.'
-            : '<b>Sve je upisano i potvrđeno.</b> Čvor je poslao najavu mreži.') +
-      (vezaPukla
-        ? '<br>Veza je pukla čim je štednja uključena — tako nRF52 i radi. ' +
-          'Pritisni <b>RESET</b> na ploči da se pokrene s novim postavkama.'
-        : '<br>Preostaje ponovno pokretanje da radio postavke stupe na snagu.') + '</div>' +
-      (vezaPukla ? '' :
-        '<button id="bReboot" class="btn btn-primary w-full mt-3">' +
-        '<i class="fa-solid fa-power-off"></i> Ponovno pokreni čvor</button>'));
+      (lose ? '<b>' + lose + ' postavki nije potvr\u0111eno.</b> Provjeri ih u konzoli prije nego ' +
+              'odnese\u0161 \u010dvor na lokaciju.'
+            : '<b>Sve je upisano i potvr\u0111eno.</b> \u010cvor je poslao najavu i ponovno se pokrenuo.') +
+      '</div><div id="stednjaKut"></div>');
 
-    if ($('#bReboot')) $('#bReboot').onclick = async () => {
-      $('#bReboot').disabled = true;
-      try { await Serijski.posalji('reboot'); } catch (e) {}
-      await spava(900);
-      try { await Serijski.odspoji(); } catch (e) {}
-      $('#bReboot').outerHTML =
-        '<div class="note ok mt-3"><b>Gotovo.</b> Čvor se ponovno pokreće s novim postavkama. ' +
-        'Za nekoliko minuta trebao bi se pojaviti na ' +
-        '<a href="https://map.meshcore.com.hr/#/home" target="_blank" rel="noopener" class="underline">karti mreže</a>.</div>';
-    };
-
+    // \u0160tednja tek sad, na podignutoj plo\u010di. Na nRF52 stupa na snagu odmah, pa
+    // veza nakon nje pukne \u2014 zato ide zadnja i zato gre\u0161ku ne smatram neuspjehom.
+    const st = naredbaStednja();
+    if (st) await ukljuciStednju(st);
+    else $('#stednjaKut').innerHTML = gotovoNota();
     btn.innerHTML = '<i class="fa-solid fa-check"></i> upisano';
   } catch (e) {
     K.red(String(e.message || e), 'err');
@@ -2555,6 +2570,53 @@ async function upisi(nar, rb) {
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Pokušaj ponovno';
   }
+}
+
+function gotovoNota() {
+  return '<div class="note ok mt-3"><b>Gotovo.</b> Za nekoliko minuta čvor bi se trebao ' +
+    'pojaviti na <a href="https://map.meshcore.com.hr/#/home" target="_blank" rel="noopener" ' +
+    'class="underline">karti mreže</a>.</div>';
+}
+
+/**
+ * Uključi štednju nakon ponovnog pokretanja. Čekam da se ploča digne, pa pošaljem
+ * naredbu; prekid veze poslije nje je očekivan, a ako je USB nestao s rebootom,
+ * ponudim gumb jer novi odabir porta traži korisnikov klik.
+ */
+async function ukljuciStednju(naredba) {
+  const kut = $('#stednjaKut');
+  kut.innerHTML = '<div class="note mt-3"><i class="fa-solid fa-circle-notch spin"></i> ' +
+    'čekam da se ploča digne, pa uključujem štednju…</div>';
+  await spava(6000);
+
+  const posalji = async () => {
+    K.red('uključujem štednju — na nRF52 ploča odmah zaspi i veza pukne, to je uredu', 'sys');
+    try {
+      await Serijski.naredba(naredba);
+    } catch (e) { /* ploča je zaspala prije odgovora — uredu */ }
+    try { await Serijski.odspoji(); } catch (e) {}
+    kut.innerHTML = '<div class="note ok mt-3"><b>Štednja je uključena.</b></div>' + gotovoNota();
+  };
+
+  if (Serijski.spojen) { await posalji(); return; }
+
+  // USB se s rebootom ponovno prijavio pod novim portom — treba klik korisnika.
+  kut.innerHTML =
+    '<div class="note warn mt-3">Ploča se ponovno prijavila na USB, pa je za štednju ' +
+    'treba još jednom odabrati.</div>' +
+    '<button id="bStednja" class="btn btn-primary w-full mt-3">' +
+      '<i class="fa-solid fa-battery-half"></i> Spoji i uključi štednju</button>';
+  $('#bStednja').onclick = async () => {
+    $('#bStednja').disabled = true;
+    try {
+      await Serijski.spoji();
+    } catch (e) {
+      kut.innerHTML = '<div class="note bad mt-3">Nisam se uspio spojiti: ' +
+        esc(String(e.message || e)) + '</div>' + gotovoNota();
+      return;
+    }
+    await posalji();
+  };
 }
 
 
