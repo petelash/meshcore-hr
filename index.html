@@ -2036,8 +2036,7 @@ function crtajRegije() {
     '<div class="fld mt-4">\u0160to se upisuje na \u010dvor</div>' +
     '<pre class="rounded-lg p-3 scroll-y" style="background:#0b1220;border:1px solid var(--line);' +
       'max-height:28vh;font-size:.73rem;line-height:1.6;color:#93c5fd;white-space:pre">' +
-      esc(rb ? 'region load\n' + rb.redovi.join('\n') + '\n\nregion home ' + rb.home + '\nregion save'
-             : '(bez regija)') + '</pre>' +
+      esc(rb ? regijePut().join('\n') : '(bez regija)') + '</pre>' +
 
     '<div class="hint">Upisuje se samo lanac do tvoje regije \u2014 ni\u0161ta susjedno ni podre\u0111eno. ' +
       'Nedostaje li ti neka razina u stablu, dodaje se u adminu, da je dobiju svi \u010dvorovi, ' +
@@ -2270,11 +2269,10 @@ function regijeBlok() {
   // Lanac od korijena do vlastite regije. Ništa susjedno — čvoru u Dardi nema
   // što raditi #pmoslavina — i ništa podređeno, jer čvor pokriva svoje mjesto.
   const lanac = S.regijaPut.map(id => R.cvor(id)).filter(Boolean);
-  const redovi = lanac.map((c, i) => '  '.repeat(i) + '#' + c.naziv);
   const dno = lanac.length - 1;
   // "region home" je razina koju je korisnik odabrao u lancu; zadano najdublja.
   const dom = lanac.find(c => c.id === S.homeId) || lanac[dno];
-  return { redovi, home: '#' + dom.naziv, lanac, dno, dom, potomci: [] };
+  return { lanac, dno, dom, potomci: [] };
 }
 
 /**
@@ -2299,13 +2297,15 @@ function regijePut() {
   return out;
 }
 
-/** Ono što wizard šalje kabelom — s interaktivnim "region load". */
+/* Ono što wizard šalje kabelom. Isti niz kao i ručni ispis — "region load"
+   se ne koristi: on je interaktivan, briše zatečeno stablo i razinu čita po
+   broju razmaka na početku retka (jedan razmak = jedna razina), pa je prelako
+   poslati blok koji firmware tiho preskači. "region put" je obična naredba,
+   odgovara na svaku, dodaje u postojeće stablo i odmah dopušta flood. */
 function naredbeKabel() {
-  const rb = regijeBlok();
   const redci = naredbe().map(x => x.n);
-  if (rb) {
-    redci.push('', 'region load', ...rb.redovi, '', 'region home ' + rb.home, 'region save');
-  }
+  const reg = regijePut();
+  if (reg.length) redci.push('', ...reg);
   redci.push('', 'advert', 'reboot');
   return redci.join('\n');
 }
@@ -2335,7 +2335,7 @@ function provjere() {
   if (S.lat != null) p.push(['get lat', String(S.lat).slice(0, 6), 'širina']);
   if (rep) p.push(['powersaving', 'on', 'štednja energije']);
   const rb = regijeBlok();
-  if (rb) p.push(['region home', rb.home, 'domaća regija']);
+  if (rb) p.push(['region home', rb.dom.naziv, 'domaća regija']);
   return p;
 }
 
@@ -2451,7 +2451,8 @@ async function upisi(nar, rb) {
   K.otvori();
   rez.innerHTML = '';
 
-  const ukupno = nar.length + (rb ? rb.redovi.length + 3 : 0) + provjere().length + 2;
+  const regNar = regijePut();
+  const ukupno = nar.length + regNar.length + provjere().length + 2;
   let gotovo = 0;
   const napredak = () => { bar.firstElementChild.style.width = Math.round(++gotovo / ukupno * 100) + '%'; };
 
@@ -2471,14 +2472,9 @@ async function upisi(nar, rb) {
 
     for (const c of nar) { await Serijski.naredba(c.n); napredak(); }
 
-    if (rb) {
-      await Serijski.posalji('region load'); napredak();
-      for (const red of rb.redovi) { await Serijski.posalji(red); await spava(90); napredak(); }
-      await Serijski.posalji('');                       // prazan red zatvara unos
-      await spava(300);
-      await Serijski.naredba('region save'); napredak();
-      await Serijski.naredba('region home ' + rb.home); napredak();
-    }
+    // Regije idu jedna po jedna, kao i u ručnom ispisu: "region put" odgovara
+    // na svaku naredbu, pa se u konzoli odmah vidi ako koja ne prođe.
+    for (const c of regNar) { await Serijski.naredba(c); napredak(); }
 
     // --- provjera ---
     rez.insertAdjacentHTML('beforeend',
