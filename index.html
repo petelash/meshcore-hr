@@ -2738,6 +2738,81 @@ function pravilaStandarda() {
   return p;
 }
 
+/**
+ * Rastavi ispis naredbe "region". Firmware crta stablo uvlakom od jednog
+ * razmaka po razini, lijepi "^" uz domaću regiju i " F" kad je flood dopušten
+ * (`RegionMap::printChildRegions`).
+ */
+function parsirajStabloRegija(tekst) {
+  const out = [];
+  for (let red of String(tekst || '').split('\n')) {
+    red = red.replace(/\r/g, '').replace(/^\s*->\s?/, '').replace(/\s+$/, '');
+    if (!red.trim()) continue;
+    if (!out.length && /^region$/i.test(red.trim())) continue;   // odjek naredbe
+    const m = /^(\s*)(\S+)(.*)$/.exec(red);
+    if (!m) continue;
+    let naziv = m[2];
+    const ostatak = m[3] || '';
+    // "^" oznacava domacu regiju, "F" dopusten flood; dolaze iza naziva.
+    let doma = /\^/.test(ostatak);
+    if (naziv.endsWith('^')) { doma = true; naziv = naziv.slice(0, -1); }
+    out.push({ dubina: m[1].length, naziv, doma, flood: /F/.test(ostatak) });
+  }
+  return out;
+}
+
+/** Crtice ispred naziva, kao u `tree`. */
+function prefiksiStabla(cvorovi) {
+  const imaBrata = (i, d) => {
+    for (let j = i + 1; j < cvorovi.length; j++) {
+      if (cvorovi[j].dubina < d) return false;
+      if (cvorovi[j].dubina === d) return true;
+    }
+    return false;
+  };
+  return cvorovi.map((c, i) => {
+    if (c.dubina === 0) return '';
+    let p = '';
+    for (let d = 1; d < c.dubina; d++) p += imaBrata(i, d) ? '\u2502   ' : '    ';
+    return p + (imaBrata(i, c.dubina) ? '\u251c\u2500\u2500 ' : '\u2514\u2500\u2500 ');
+  });
+}
+
+function crtajStabloRegija(tekst) {
+  const cvorovi = parsirajStabloRegija(tekst);
+  if (!cvorovi.length) {
+    return '<div class="note warn" style="font-size:.85rem">Čvor nije vratio nijednu regiju. ' +
+      'Bez njih sudjeluje samo u neoznačenom prometu.</div>';
+  }
+  const prefiksi = prefiksiStabla(cvorovi);
+  const doma = cvorovi.find(c => c.doma);
+
+  return (doma
+      ? '<div class="text-sm mb-3">Domaća regija: <b style="color:#fff">#' + esc(doma.naziv) + '</b></div>'
+      : '<div class="note warn mb-3" style="font-size:.85rem"><b>Domaća regija nije postavljena.</b> ' +
+        'Čvor se ne najavljuje ni u jednoj regiji.</div>') +
+    '<div class="rounded-lg scroll-y" style="background:#0b1220;border:1px solid var(--line);' +
+      'max-height:26vh;padding:.45rem 0">' +
+      cvorovi.map((c, i) => {
+        const korijen = c.naziv === '*';
+        return '<div style="display:flex;align-items:center;gap:.4rem;padding:.2rem .6rem;' +
+            'font-family:var(--mono);font-size:.78rem;line-height:1.5;white-space:pre;' +
+            (c.doma ? 'background:rgba(37,99,235,.28);box-shadow:inset 2px 0 0 #60a5fa' : '') + '">' +
+          '<span style="color:rgba(255,255,255,.3)">' + esc(prefiksi[i]) + '</span>' +
+          '<span style="width:8px;height:8px;border-radius:2px;flex:none;background:' +
+            (korijen ? 'rgba(255,255,255,.25)' : R.bojaZa(c.naziv)) + '"></span>' +
+          '<span style="' + (c.doma ? 'color:#fff;font-weight:600' : 'color:#cbd5e1') + '">' +
+            esc(korijen ? '* (sve ostalo)' : '#' + c.naziv) + '</span>' +
+          (c.flood ? '' :
+            '<span style="color:var(--warn);font-size:.7rem"> bez flooda</span>') +
+          (c.doma ? '<span style="color:#60a5fa;font-size:.7rem;margin-left:auto">home</span>' : '') +
+          '</div>';
+      }).join('') +
+    '</div>' +
+    '<div class="hint">Plava je domaća regija čvora (<code>^</code> u ispisu). ' +
+      'Regija bez oznake <code>F</code> ne proširuje flood promet.</div>';
+}
+
 function kPregled(h) {
   naslov(h, 2, 'Pregled postavki',
     'Čitam čvor i uspoređujem ga s hrvatskim standardom. Ništa se ne upisuje.');
@@ -2786,6 +2861,18 @@ async function procitajPostavke() {
     const stablo = (await Serijski.naredba('region')).join('\n');
     napredak();
 
+    // Ima li novije službeno izdanje za ovu ulogu?
+    let novije = null;
+    try {
+      const izd = (await FW.dohvati())[ULOGA[S.tip].tag];
+      const redVer = redci.find(x => x.pr.cmd === 'ver');
+      const naCvoru = verzijaNiza(redVer ? redVer.v : '');
+      const vani = verzijaNiza(izd && izd.tag_name);
+      if (naCvoru && vani && verzijaManjaOd(naCvoru, vani)) {
+        novije = { tag: izd.tag_name, verzija: vani.join('.'), sad: naCvoru.join('.') };
+      }
+    } catch (e) { /* bez mreže — preskoci */ }
+
     const lose = redci.filter(x => !x.ok);
     rez.insertAdjacentHTML('beforeend',
       '<div class="note ' + (lose.length ? 'warn' : 'ok') + ' mb-4">' +
@@ -2808,11 +2895,15 @@ async function procitajPostavke() {
             esc(x.pr.treba) + '</span>') +
           '</div>').join('') +
       '</div></div>' +
-      '<div class="card p-4 mt-4"><div class="font-semibold mb-2">Stablo regija</div>' +
-      '<pre class="text-xs scroll-y" style="max-height:20vh;color:#93c5fd;white-space:pre-wrap">' +
-        esc(stablo || '(prazno)') + '</pre>' +
-      '<div class="hint"><code>F</code> označava regiju kojoj je flood dopušten, ' +
-        '<code>^</code> domaću regiju čvora.</div></div>');
+      '<div class="card p-4 mt-4"><div class="font-semibold mb-3">Regije na čvoru</div>' +
+      crtajStabloRegija(stablo) + '</div>');
+
+    if (novije) {
+      rez.insertAdjacentHTML('beforeend',
+        '<div class="note warn mt-4"><b>Ima noviji firmware: ' + esc(novije.verzija) + '.</b> ' +
+        'Na čvoru je ' + esc(novije.sad) + '. Nadogradnja zadržava ime, ključeve i postavke — ' +
+        '<a href="?nadogradnja" class="underline">otvori je ovdje</a>.</div>');
+    }
 
     const popravci = lose.filter(x => x.pr.popravak).map(x => x.pr.popravak);
     const savjeti = lose.filter(x => x.pr.savjet).map(x => x.pr.savjet);
