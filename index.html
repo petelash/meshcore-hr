@@ -622,7 +622,11 @@ function opisPloce(oznaka) {
       obrnutaDuzina = nk.length; obrnuti = T[k];
     }
   }
-  return najbolji || obrnuti;
+  if (najbolji) return najbolji;
+  // Obrnuti pogodak je srodna, preciznija ploča iz kataloga: slika i pomoćni
+  // firmwarei vrijede, ali ime je ime te druge varijante — "Xiao_S3" nije
+  // "Seeed Studio Xiao S3 WIO". Bez imena naziv se izvede iz same oznake.
+  return obrnuti ? Object.assign({}, obrnuti, { n: null }) : null;
 }
 
 /** Ime koje se prikazuje korisniku. */
