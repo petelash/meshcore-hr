@@ -212,6 +212,7 @@ const KONF = {
 const HR = {
   radio:   { freq: '869.618', bw: '62.5', sf: '8', cr: 8 },   // EU Narrow
   tx:      22,
+  dutycycle:           10,    // posto vremena u eteru, koliko bend 869.4-869.65 dopusta
   advertInterval:      240,   // minuta (raspon 60–240)
   floodAdvertInterval: 24,    // sati  (raspon 3–168)
   floodMaxAdvert:      8,     // dokle putuje vlastita najava
@@ -2035,7 +2036,7 @@ function crtajRegije() {
     '<div class="fld mt-4">\u0160to se upisuje na \u010dvor</div>' +
     '<pre class="rounded-lg p-3 scroll-y" style="background:#0b1220;border:1px solid var(--line);' +
       'max-height:28vh;font-size:.73rem;line-height:1.6;color:#93c5fd;white-space:pre">' +
-      esc(rb ? 'region load\n' + rb.redovi.join('\n') + '\n\nregion save\nregion home ' + rb.home
+      esc(rb ? 'region load\n' + rb.redovi.join('\n') + '\n\nregion home ' + rb.home + '\nregion save'
              : '(bez regija)') + '</pre>' +
 
     '<div class="hint">Upisuje se samo lanac do tvoje regije \u2014 ni\u0161ta susjedno ni podre\u0111eno. ' +
@@ -2174,7 +2175,7 @@ function kPostavke(h) {
       '<div class="card p-4">' +
         '<label class="fld">Nova administratorska lozinka</label>' +
         '<div class="flex gap-2">' +
-          '<input id="iLoz" type="text" placeholder="najmanje 8 znakova" value="' + esc(S.lozinka) + '">' +
+          '<input id="iLoz" type="text" placeholder="najmanje 6 znakova" value="' + esc(S.lozinka) + '">' +
           '<button id="bGen" class="btn btn-ghost btn-sm" type="button" title="Smisli lozinku">' +
             '<i class="fa-solid fa-dice"></i></button>' +
         '</div>' +
@@ -2206,7 +2207,7 @@ function kPostavke(h) {
     S.owner = $('#iOwner').value.trim();
     S.postaviSat = $('#iSat').checked;
     if ($('#iRo')) S.allowReadOnly = $('#iRo').checked;
-    $('#bDalje', nav).disabled = !(S.ime.length >= 2 && S.lozinka.length >= 8);
+    $('#bDalje', nav).disabled = !(S.ime.length >= 2 && S.lozinka.length >= 6);
   };
   ['iIme', 'iLoz', 'iOwner', 'iSat', 'iRo'].forEach(id => {
     const el = $('#' + id); if (el) { el.oninput = prov; el.onchange = prov; }
@@ -2242,6 +2243,7 @@ function naredbe() {
 
   add('set radio ' + r.freq + ',' + r.bw + ',' + r.sf + ',' + S.cr, 'radio — EU Narrow');
   add('set tx ' + HR.tx, 'snaga odašiljanja');
+  add('set dutycycle ' + HR.dutycycle, 'najviše vremena u eteru (%)');
 
   add('set repeat on', 'prosljeđivanje uključeno');
   add('set path.hash.mode ' + HR.pathHashMode, 'veličina hasha u najavi');
@@ -2292,8 +2294,8 @@ function regijePut() {
     const rod = R.cvor(p.cvor.roditelj);
     out.push('region put ' + p.cvor.naziv + ' ' + (rod ? rod.naziv : rb.lanac[rb.dno].naziv));
   }
-  out.push('region save');
   out.push('region home ' + rb.dom.naziv);
+  out.push('region save');
   return out;
 }
 
@@ -2302,7 +2304,7 @@ function naredbeKabel() {
   const rb = regijeBlok();
   const redci = naredbe().map(x => x.n);
   if (rb) {
-    redci.push('', 'region load', ...rb.redovi, '', 'region save', 'region home ' + rb.home);
+    redci.push('', 'region load', ...rb.redovi, '', 'region home ' + rb.home, 'region save');
   }
   redci.push('', 'advert', 'reboot');
   return redci.join('\n');
