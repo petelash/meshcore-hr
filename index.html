@@ -381,10 +381,25 @@ const Serijski = {
     } catch (e) { /* port zatvoren */ }
   },
 
-  async posalji(txt) {
+  /**
+   * Pošalji redak. Ako ploča nestane usred upisa — nRF52 na "powersaving on"
+   * zaspi i odspoji USB — write() zna ostati neriješen zauvijek, pa mu dajem rok.
+   */
+  async posalji(txt, rok) {
     if (!this.spojen) throw new Error('nije spojeno');
     K.red(txt, 'tx');
-    await this.pisac.write(new TextEncoder().encode(txt + '\r\n'));
+    const upis = this.pisac.write(new TextEncoder().encode(txt + '\r\n'));
+    upis.catch(() => {});   // da neuspjeli upis ne ostane neuhvaćen
+    let istekao = false;
+    await Promise.race([
+      upis,
+      spava(rok || 2500).then(() => { istekao = true; }),
+    ]);
+    if (istekao) {
+      this.spojen = false;
+      Chip.osvjezi();
+      throw new Error('veza s pločom je prekinuta');
+    }
   },
 
   /** Pošalji naredbu i skupi odgovor do tišine od `tiho` ms. */
@@ -392,7 +407,12 @@ const Serijski = {
     tiho = tiho || 420; najdulje = najdulje || 6000;
     const c = { redovi: [] };
     this.cekaci.push(c);
-    await this.posalji(txt);
+    try {
+      await this.posalji(txt);
+    } catch (e) {
+      this.cekaci = this.cekaci.filter(x => x !== c);
+      throw e;
+    }
     const pocetak = Date.now();
     let zadnji = c.redovi.length, mir = Date.now();
     while (Date.now() - pocetak < najdulje) {
@@ -2484,27 +2504,35 @@ async function upisi(nar, rb) {
 
     // Tek sad završne: "advert", pa "powersaving on" koji na nRF52 odmah
     // uspava ploču i prekine USB — zato je posljednji i zato grešku prešućujem.
+    let vezaPukla = false;
     for (const c of zavrsne) {
       if (c === 'powersaving on') {
         K.red('uključujem štednju — na nRF52 ploča odmah zaspi i veza pukne, to je uredu', 'sys');
-        try { await Serijski.naredba(c); } catch (e) {}
-      } else {
+      }
+      try {
         await Serijski.naredba(c);
+      } catch (e) {
+        vezaPukla = true;
+        K.red('ploča više ne odgovara — sve prije ovoga je upisano i spremljeno', 'sys');
+        break;
       }
       napredak();
     }
+    bar.firstElementChild.style.width = '100%';
     rez.insertAdjacentHTML('beforeend',
       '<div class="note ' + (lose ? 'warn' : 'ok') + ' mt-4">' +
       (lose ? '<b>' + lose + ' postavki nije potvrđeno.</b> Provjeri ih u konzoli prije nego ' +
               'odneseš čvor na lokaciju.'
             : '<b>Sve je upisano i potvrđeno.</b> Čvor je poslao najavu mreži.') +
-      '<br>Preostaje ponovno pokretanje da radio postavke stupe na snagu. ' +
-      'Ako je veza pukla kad sam uključio štednju, gumb neće proći — pritisni RESET na ploči, ' +
-      'postavke su već spremljene.</div>' +
-      '<button id="bReboot" class="btn btn-primary w-full mt-3">' +
-      '<i class="fa-solid fa-power-off"></i> Ponovno pokreni čvor</button>');
+      (vezaPukla
+        ? '<br>Veza je pukla čim je štednja uključena — tako nRF52 i radi. ' +
+          'Pritisni <b>RESET</b> na ploči da se pokrene s novim postavkama.'
+        : '<br>Preostaje ponovno pokretanje da radio postavke stupe na snagu.') + '</div>' +
+      (vezaPukla ? '' :
+        '<button id="bReboot" class="btn btn-primary w-full mt-3">' +
+        '<i class="fa-solid fa-power-off"></i> Ponovno pokreni čvor</button>'));
 
-    $('#bReboot').onclick = async () => {
+    if ($('#bReboot')) $('#bReboot').onclick = async () => {
       $('#bReboot').disabled = true;
       try { await Serijski.posalji('reboot'); } catch (e) {}
       await spava(900);
