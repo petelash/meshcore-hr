@@ -234,6 +234,7 @@ const S = {
   novi: true,           // true = flashamo (nova ploča ili nadogradnja), false = samo podešavanje
   nadogradnja: false,   // čvor već radi, mijenjamo samo firmware i čuvamo identitet
   brisanje: false,      // potpuno brisanje flasha prije upisa
+  uskladi: false,       // nadogradnja: korisnik je zatražio i korake podešavanja
   ploca: null,          // { ime, cip, asset }
   izdanje: null,
   cr: 8,
@@ -1027,11 +1028,19 @@ function koraci() {
   k.push({ id: 'firmware', lbl: 'Firmware' });
   k.push({ id: 'flash',    lbl: S.nadogradnja ? 'Nadogradnja' : 'Flashanje' });
 
+  // Nadogradnja bez brisanja flasha čuva ime, ključeve i postavke, pa tu
+  // najčešće nema što podešavati — wizard završi, a koraci podešavanja se
+  // otvore samo ako ih korisnik na zadnjem ekranu zatraži (S.uskladi).
+  // Zamjena je na istom mjestu u popisu, pa indeks koraka ostaje valjan.
   if (S.tip !== 'companion') {
-    k.push({ id: 'karta',    lbl: 'Lokacija' });
-    k.push({ id: 'cr',       lbl: 'Zaštita veze' });
-    k.push({ id: 'postavke', lbl: 'Postavke' });
-    k.push({ id: 'upis',     lbl: 'Upis i provjera' });
+    if (S.nadogradnja && !S.brisanje && !S.uskladi) {
+      k.push({ id: 'kraj', lbl: 'Gotovo' });
+    } else {
+      k.push({ id: 'karta',    lbl: 'Lokacija' });
+      k.push({ id: 'cr',       lbl: 'Zaštita veze' });
+      k.push({ id: 'postavke', lbl: 'Postavke' });
+      k.push({ id: 'upis',     lbl: 'Upis i provjera' });
+    }
   } else {
     k.push({ id: 'gotovo', lbl: 'Gotovo' });
   }
@@ -1068,7 +1077,8 @@ function ispocetka(pitaj) {
       !confirm('Početi ispočetka? Sve što si dosad odabrao se briše.')) return;
   Object.assign(S, {
     korak: 0, tip: null, companionVeza: 'ble', novi: POCETNI_NACIN,
-    nadogradnja: POCETNI_NADOGRADNJA, brisanje: false, ploca: null, izdanje: null,
+    nadogradnja: POCETNI_NADOGRADNJA, brisanje: false, uskladi: false,
+    ploca: null, izdanje: null,
     cr: 8, crOdgovori: {}, lat: null, lon: null, jls: null,
     regijaPut: [], regijaId: null, sPodregijama: false, ime: '', lozinka: '', owner: '',
     postaviSat: true, allowReadOnly: false, verzija: null,
@@ -1086,6 +1096,7 @@ function crtaj() {
   const f = {
     tip: kTip, veza: kVeza, ploca: kPloca, otafix: kOtafix, firmware: kFirmware,
     flash: kFlash, karta: kKarta, cr: kCr, postavke: kPostavke, upis: kUpis, gotovo: kGotovo,
+    kraj: kKraj,
   }[id];
   $('#panel').innerHTML = '';
   f($('#panel'));
@@ -1153,6 +1164,7 @@ function kTip(h) {
     S.novi = m !== 'radi';
     S.nadogradnja = m === 'nadogradnja';
     S.brisanje = false;
+    S.uskladi = false;
     if (!S.novi && S.tip === 'companion') S.tip = null;
     S.ploca = null;
     crtaj();
@@ -1592,16 +1604,19 @@ function kFirmware(h) {
    06 Flash (ESP32 kroz preglednik, nRF52 je već gotov)
    =========================================================================== */
 
-/* Nakon nadogradnje čvor već ima svoje postavke, pa su koraci koji slijede
-   neobavezni — korisno je to reći da nitko ne misli da mora sve ponovno. */
+/* Što slijedi nakon upisa. Bez brisanja čvor zadrži svoje postavke, pa koraci
+   podešavanja otpadaju — osim ako ih je korisnik sam zatražio na ekranu "Gotovo". */
 function nastavakNadogradnje() {
   if (!S.nadogradnja) return '';
-  return S.brisanje
-    ? '<div class="note warn mt-4" style="font-size:.85rem">Flash je obrisan, pa čvor nema ' +
-      'ni ime ni regije. Koraci koji slijede upisuju hrvatski standard ispočetka — prođi ih.</div>'
-    : '<div class="note mt-4" style="font-size:.85rem">Postavke čvora su ostale kakve su bile. ' +
-      'Koraci koji slijede samo ponovno upišu hrvatski standard; ako je čvor već usklađen, ' +
-      'tu možeš i stati.</div>';
+  if (S.brisanje) {
+    return '<div class="note warn mt-4" style="font-size:.85rem">Flash je obrisan, pa čvor nema ' +
+      'ni ime ni regije. Koraci koji slijede upisuju hrvatski standard ispočetka — prođi ih.</div>';
+  }
+  if (S.uskladi) {
+    return '<div class="note mt-4" style="font-size:.85rem">Postavke čvora su ostale kakve su bile. ' +
+      'Koraci koji slijede ih samo provjere i, gdje treba, usklade s hrvatskim standardom.</div>';
+  }
+  return '';
 }
 function kFlash(h) {
   const esp = S.ploca.cip === 'esp32';
@@ -1747,6 +1762,33 @@ function h2dalje() {
 /* ===========================================================================
    Companion — kraj
    =========================================================================== */
+/* Kraj nadogradnje bez brisanja: čvor radi s onim što je imao i prije, pa je
+   wizard tu gotov. Koraci podešavanja su iza gumba, jer trebaju samo kad je
+   novi firmware donio postavku koje prije nije bilo ili se standard promijenio. */
+function kKraj(h) {
+  const v = S.izdanje ? S.izdanje.tag_name : null;
+  naslov(h, koraci().length, 'Gotovo',
+    'Čvor ima novi firmware' + (v ? ' (' + esc(v) + ')' : '') + ', a ime, ključevi i postavke ' +
+    'su ostali kakvi su bili. Ostali čvorovi ga vide kao isti čvor i ništa ne treba podešavati.');
+  h.insertAdjacentHTML('beforeend',
+    '<div class="card p-5">' +
+      '<div class="font-semibold mb-3">Kad ipak vrijedi proći podešavanje</div>' +
+      '<ul class="text-sm space-y-2.5 leading-relaxed" style="color:var(--muted);padding-left:1.1rem">' +
+        '<li>Nova verzija firmwarea donijela je postavku koje prije nije bilo — ' +
+          'u pohrani čvora je nema, pa uzme tvorničku vrijednost, ne hrvatsku.</li>' +
+        '<li>Hrvatski standard se promijenio od kad je čvor postavljen.</li>' +
+        '<li>Ne znaš sa sigurnošću kako je čvor bio postavljen.</li>' +
+      '</ul>' +
+      '<button id="bUskladi" class="btn btn-primary w-full mt-4">' +
+        '<i class="fa-solid fa-list-check"></i> Provjeri i uskladi postavke</button>' +
+      '<div class="hint mt-2">Četiri koraka: lokacija, zaštita veze, postavke, upis. ' +
+        'Ništa se ne mijenja dok sam ne pokreneš upis.</div>' +
+    '</div>');
+  // Zamjena koraka je na istom indeksu, pa je dovoljno ponovno crtanje.
+  $('#bUskladi', h).onclick = () => { S.uskladi = true; crtaj(); scrollTo({ top: 0, behavior: 'smooth' }); };
+  navRed(h);
+}
+
 function kGotovo(h) {
   naslov(h, koraci().length, 'Gotovo',
     'Companion nema administratorsko sučelje preko kabela — dalje se postavlja kroz mobilnu aplikaciju.');
