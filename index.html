@@ -1208,7 +1208,7 @@ function kTip(h) {
   ];
   if (S.novi) {
     stavke.push({ v: 'companion', ikona: 'fa-mobile-screen', naziv: 'Companion',
-      opis: 'Osobni čvor koji se spaja na mobitel. Wizard ga samo flasha — dalje ide kroz aplikaciju.' });
+      opis: 'Osobni čvor koji se spaja na mobitel. Wizard ga samo flasha — dalje ide kroz mobilnu aplikaciju.' });
   }
 
   izbor(h, stavke, S.tip, v => { S.tip = v; S.ploca = null; dalje(); });
@@ -1228,7 +1228,7 @@ function kVeza(h) {
   const br = koraci().findIndex(k => k.id === 'veza') + 1;
   naslov(h, br, 'Kako se companion spaja?',
     'Ovo nije postavka nego <b>drugi firmware</b>, pa se bira prije flashanja. ' +
-    'Krivi izbor znači da te aplikacija neće vidjeti.');
+    'Krivi izbor znači da te mobilna aplikacija neće vidjeti.');
   izbor(h, [
     { v: 'ble', ikona: 'fa-brands fa-bluetooth-b', naziv: 'Bluetooth',
       opis: 'Uobičajen izbor. Čvor stoji u džepu ili torbi, a mobitel se spaja bežično. ' +
@@ -1477,14 +1477,14 @@ async function kOtafix(h) {
    Koja datoteka ide na ploču
 
    ESP32 izdanje nosi dvije:
-     *-merged.bin  bootloader + tablica particija + aplikacija. Ide na adresu 0
+     *-merged.bin  bootloader + tablica particija + firmware. Ide na adresu 0
                    i prepisuje cijeli raspored flasha. Jedino ispravno za ploču
                    koja MeshCore nije imala, ili je na njoj bio Meshtastic s
                    drugačijim particijama.
-     *.bin         sama aplikacija. Ide na 0x10000, a bootloader, particije i NVS
+     *.bin         sam firmware. Ide na 0x10000, a bootloader, particije i NVS
                    ostaju — čvor zadrži ime, ključeve i postavke. To je nadogradnja.
 
-   nRF52 tu podjelu ne poznaje: .uf2 uvijek nosi samo aplikaciju, bootloader se
+   nRF52 tu podjelu ne poznaje: .uf2 uvijek nosi samo firmware, bootloader se
    mijenja zasebno (OTAFIX), a flash se briše posebnim "format" firmwareom.
    Zato je tamo nadogradnja ista radnja kao prvi upis.
    --------------------------------------------------------------------------- */
@@ -1510,8 +1510,8 @@ function kvacicaBrisanja(h, esp, brisac) {
   if (!esp && !brisac) {
     h.insertAdjacentHTML('beforeend',
       '<div class="note mt-4" style="font-size:.85rem">Za ovu ploču flasher ne nudi firmware ' +
-      'za brisanje flasha, pa ga ne nudim ni ja. Upis <code>.uf2</code> datoteke ionako ' +
-      'mijenja samo aplikaciju — postavke i identitet čvora ostaju.</div>');
+      'za brisanje flasha, pa ga ne nudim ni ja. <code>.uf2</code> datoteka ionako nosi ' +
+      'samo firmware — postavke i identitet čvora ostaju.</div>');
     return;
   }
   h.insertAdjacentHTML('beforeend',
@@ -1554,7 +1554,7 @@ function kFirmware(h) {
         '<div class="text-sm font-mono break-all">' + esc(f.a.name) + '</div>' +
         '<div class="text-xs mt-1" style="color:var(--muted)">' + Math.round(f.a.size / 1024) + ' KB' +
           (esp ? ' · adresa 0x' + f.adresa.toString(16) +
-                 ' · ' + (f.puna ? 'cijeli flash' : 'samo aplikacija') : '') +
+                 ' · ' + (f.puna ? 'cijeli flash' : 'samo firmware') : '') +
         '</div>' +
       '</div>' +
       '<a class="btn btn-primary w-full" href="' + esc(f.a.browser_download_url) + '" download>' +
@@ -1566,18 +1566,19 @@ function kFirmware(h) {
     h.insertAdjacentHTML('beforeend',
       f.puna
         ? '<div class="note mt-4" style="font-size:.85rem">' +
-            '<b>Puna slika flasha</b> (<code>-merged.bin</code>) — nosi bootloader, tablicu ' +
-            'particija i aplikaciju i ide na adresu <code>0x0</code>.' +
+            '<b>Cijeli flash</b> (<code>-merged.bin</code>) — u jednoj datoteci su bootloader, ' +
+            'tablica particija i firmware. Upisuje se od početka, s adrese <code>0x0</code>.' +
             (S.nadogradnja
               ? (S.ploca.datoteke.ota
-                  ? ' Odabrao si brisanje, pa ide puna slika.'
-                  : ' Ovo izdanje za tvoju ploču nema zasebnu aplikacijsku datoteku, pa ide puna ' +
-                    'slika — čvor će izgubiti postavke i identitet.')
+                  ? ' Odabrao si brisanje, pa ide cijeli flash.'
+                  : ' Ovo izdanje za tvoju ploču nema datoteku sa samim firmwareom, pa ide ' +
+                    'cijeli flash — čvor će izgubiti postavke i identitet.')
               : ' Tako treba za ploču koja MeshCore dosad nije imala.') +
           '</div>'
         : '<div class="note ok mt-4" style="font-size:.85rem">' +
-            '<b>Samo aplikacija</b> — ide na <code>0x10000</code>, a bootloader, particije i ' +
-            'spremljene postavke ostaju na miru. Čvor zadržava ime, ključeve i kontakte.' +
+            '<b>Samo firmware</b> — ide na <code>0x10000</code>, a bootloader, particije i ' +
+            'spremljene postavke ostaju na miru. Čvor zadržava ime, ključeve, regije ' +
+            'i kontakte.' +
           '</div>');
   }
 
@@ -1615,7 +1616,7 @@ function kFirmware(h) {
         '</ol>' +
         (S.nadogradnja && !S.brisanje
           ? '<div class="note ok mt-4" style="font-size:.82rem">Postavke i identitet čvora ' +
-            'ostaju — .uf2 nosi samo aplikaciju.</div>'
+            'ostaju — <code>.uf2</code> nosi samo firmware.</div>'
           : '') +
       '</div>');
   }
@@ -1648,7 +1649,7 @@ function kFlash(h) {
   naslov(h, br, esp ? (S.nadogradnja && !f.puna ? 'Nadogradnja' : 'Flashanje') : 'Provjera',
     esp ? (f.puna
             ? 'Odaberi skinutu datoteku i spoji ploču. Ovo prepisuje cijeli flash.'
-            : 'Odaberi skinutu datoteku i spoji ploču. Upisuje se samo aplikacija — ' +
+            : 'Odaberi skinutu datoteku i spoji ploču. Upisuje se samo firmware — ' +
               'ime, ključevi i postavke ostaju.')
         : 'nRF52 je već upisan prevlačenjem datoteke. Idemo provjeriti da se čvor javlja.');
 
@@ -1689,7 +1690,7 @@ function kFlash(h) {
   $('#fwFile').onchange = e => {
     dat = e.target.files[0] || null;
     // Zamijenjene datoteke su najčešća greška: merged na 0x10000 neće se pokrenuti,
-    // a sama aplikacija na 0x0 pregazi bootloader.
+    // a sam firmware na 0x0 pregazi bootloader.
     if (dat && /-merged\.bin$/i.test(dat.name) !== !!f.puna) {
       K.red('odabrana datoteka ne odgovara načinu upisa (' +
         (f.puna ? 'treba -merged.bin' : 'treba obični .bin bez -merged') + ')', 'err');
@@ -1821,9 +1822,9 @@ function kGotovo(h) {
       '<ol class="text-sm space-y-2.5 leading-relaxed" style="color:var(--muted);padding-left:1.1rem">' +
         '<li>Instaliraj MeshCore aplikaciju na mobitel.</li>' +
         (S.companionVeza === 'usb'
-          ? '<li>Spoji čvor USB kabelom na uređaj na kojem je aplikacija.</li>'
+          ? '<li>Spoji čvor USB kabelom na uređaj na kojem je mobilna aplikacija.</li>'
           : '<li>Upari čvor preko Bluetootha.</li>') +
-        '<li>U aplikaciji postavi preset <b style="color:#fff">EU Narrow</b> — ' +
+        '<li>U mobilnoj aplikaciji postavi preset <b style="color:#fff">EU Narrow</b> — ' +
           '869.618 MHz, 62.5 kHz, SF8, CR8 — isto što koriste hrvatski repetitori.</li>' +
         '<li>Upiši svoje ime i javi se na mreži.</li>' +
       '</ol>' +
