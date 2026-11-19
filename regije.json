@@ -61,16 +61,6 @@
       "id": "marijanci",
       "naziv": "marijanci",
       "roditelj": "miholjstina"
-    },
-    {
-      "id": "osijek",
-      "naziv": "osijek",
-      "roditelj": "slavonija"
-    },
-    {
-      "id": "zagreb",
-      "naziv": "zagreb",
-      "roditelj": "sredisnja"
     }
   ],
   "dodjele": {
@@ -78,7 +68,6 @@
     "04855": "viljevo",
     "05789": "magadenovac",
     "02577": "marijanci",
-    "02712": "pmoslavina",
-    "03123": "osijek"
+    "02712": "pmoslavina"
   }
 }
