@@ -2074,10 +2074,10 @@ function crtajGraniceRegija() {
   for (const reg of Object.keys(GRANICE)) {
     const boja = BOJA[reg] || '#94a3b8';
     // tamna podloga ispod, pa boja regije — crta se vidi i na svijetloj karti
-    L.polyline(GRANICE[reg], { color: 'rgba(8,12,22,.75)', weight: 5,
-      opacity: 0.9, interactive: false, lineJoin: 'round' }).addTo(karta);
-    L.polyline(GRANICE[reg], { color: boja, weight: 2.5,
-      opacity: 0.95, interactive: false, lineJoin: 'round' }).addTo(karta);
+    L.polyline(GRANICE[reg], { color: 'rgba(8,12,22,.55)', weight: 2.2,
+      opacity: 0.7, interactive: false, lineJoin: 'round' }).addTo(karta);
+    L.polyline(GRANICE[reg], { color: boja, weight: 1,
+      opacity: 1, interactive: false, lineJoin: 'round' }).addTo(karta);
   }
 }
 
