@@ -3305,8 +3305,7 @@ const A = {
     const zup = R.cvor(R.zupanijskaZa(j));
     const moja = R.cvor(regId);
     const osnovna = !moja || ['eu', 'hr'].includes(moja.id) || !!BOJA[moja.id];
-    const kolikoJos = Object.keys(R.dodjele).filter(k => R.dodjele[k] === regId).length +
-      GEO.jls.filter(x => x.r === regId && !R.dodjele[x.s]).length;
+    const kolikoJos = GEO.jls.filter(x => R.zaJls(x) === regId).length;
 
     return '<div class="mt-3 pt-3" style="border-top:1px solid var(--line)">' +
       '<div class="font-semibold text-sm">' + esc(j.n) + '</div>' +
