@@ -1,6 +1,29 @@
 {
   "verzija": 1,
   "azurirano": "2026-11-20",
+  "zupReg": {
+    "01": "zagreb",
+    "02": "krapina",
+    "03": "sisak",
+    "04": "karlovac",
+    "05": "varazdin",
+    "06": "koprivnica",
+    "07": "bjelovar",
+    "08": "rijeka",
+    "09": "gospic",
+    "10": "virovitica",
+    "11": "pozega",
+    "12": "sbrod",
+    "13": "zadar",
+    "14": "osijek",
+    "15": "sibenik",
+    "16": "vukovar",
+    "17": "split",
+    "18": "pula",
+    "19": "dubrovnik",
+    "20": "cakovec",
+    "21": "zagreb"
+  },
   "stablo": [
     {
       "id": "eu",
@@ -33,9 +56,109 @@
       "roditelj": "hr"
     },
     {
+      "id": "osijek",
+      "naziv": "osijek",
+      "roditelj": "slavonija"
+    },
+    {
+      "id": "pozega",
+      "naziv": "pozega",
+      "roditelj": "slavonija"
+    },
+    {
+      "id": "sbrod",
+      "naziv": "sbrod",
+      "roditelj": "slavonija"
+    },
+    {
+      "id": "virovitica",
+      "naziv": "virovitica",
+      "roditelj": "slavonija"
+    },
+    {
+      "id": "vukovar",
+      "naziv": "vukovar",
+      "roditelj": "slavonija"
+    },
+    {
+      "id": "bjelovar",
+      "naziv": "bjelovar",
+      "roditelj": "sredisnja"
+    },
+    {
+      "id": "cakovec",
+      "naziv": "cakovec",
+      "roditelj": "sredisnja"
+    },
+    {
+      "id": "karlovac",
+      "naziv": "karlovac",
+      "roditelj": "sredisnja"
+    },
+    {
+      "id": "koprivnica",
+      "naziv": "koprivnica",
+      "roditelj": "sredisnja"
+    },
+    {
+      "id": "krapina",
+      "naziv": "krapina",
+      "roditelj": "sredisnja"
+    },
+    {
+      "id": "sisak",
+      "naziv": "sisak",
+      "roditelj": "sredisnja"
+    },
+    {
+      "id": "varazdin",
+      "naziv": "varazdin",
+      "roditelj": "sredisnja"
+    },
+    {
+      "id": "zagreb",
+      "naziv": "zagreb",
+      "roditelj": "sredisnja"
+    },
+    {
+      "id": "gospic",
+      "naziv": "gospic",
+      "roditelj": "istralika"
+    },
+    {
+      "id": "pula",
+      "naziv": "pula",
+      "roditelj": "istralika"
+    },
+    {
+      "id": "rijeka",
+      "naziv": "rijeka",
+      "roditelj": "istralika"
+    },
+    {
+      "id": "dubrovnik",
+      "naziv": "dubrovnik",
+      "roditelj": "dalmacija"
+    },
+    {
+      "id": "sibenik",
+      "naziv": "sibenik",
+      "roditelj": "dalmacija"
+    },
+    {
+      "id": "split",
+      "naziv": "split",
+      "roditelj": "dalmacija"
+    },
+    {
+      "id": "zadar",
+      "naziv": "zadar",
+      "roditelj": "dalmacija"
+    },
+    {
       "id": "miholjstina",
       "naziv": "miholjstina",
-      "roditelj": "slavonija"
+      "roditelj": "osijek"
     },
     {
       "id": "dmiholjac",
@@ -61,21 +184,6 @@
       "id": "marijanci",
       "naziv": "marijanci",
       "roditelj": "miholjstina"
-    },
-    {
-      "id": "osijek",
-      "naziv": "osijek",
-      "roditelj": "slavonija"
-    },
-    {
-      "id": "zagreb",
-      "naziv": "zagreb",
-      "roditelj": "sredisnja"
-    },
-    {
-      "id": "rijeka",
-      "naziv": "rijeka",
-      "roditelj": "istralika"
     }
   ],
   "dodjele": {
@@ -83,85 +191,6 @@
     "04855": "viljevo",
     "05789": "magadenovac",
     "02577": "marijanci",
-    "02712": "pmoslavina",
-    "03123": "osijek",
-    "00027": "osijek",
-    "00213": "osijek",
-    "00655": "osijek",
-    "01104": "osijek",
-    "01112": "osijek",
-    "06149": "osijek",
-    "05797": "osijek",
-    "05177": "osijek",
-    "01333": "zagreb",
-    "05509": "zagreb",
-    "05479": "zagreb",
-    "00337": "zagreb",
-    "00345": "zagreb",
-    "00973": "zagreb",
-    "01147": "zagreb",
-    "01350": "zagreb",
-    "01902": "zagreb",
-    "01937": "zagreb",
-    "05339": "zagreb",
-    "05452": "zagreb",
-    "02135": "zagreb",
-    "05487": "zagreb",
-    "05398": "zagreb",
-    "03760": "zagreb",
-    "01015": "zagreb",
-    "04367": "zagreb",
-    "05517": "zagreb",
-    "03808": "zagreb",
-    "05401": "zagreb",
-    "01694": "zagreb",
-    "03310": "zagreb",
-    "05444": "zagreb",
-    "01589": "zagreb",
-    "05428": "zagreb",
-    "05088": "zagreb",
-    "04294": "zagreb",
-    "05436": "zagreb",
-    "03620": "zagreb",
-    "05495": "zagreb",
-    "01635": "zagreb",
-    "03565": "zagreb",
-    "05363": "zagreb",
-    "00523": "rijeka",
-    "02526": "rijeka",
-    "02534": "rijeka",
-    "00086": "rijeka",
-    "02151": "rijeka",
-    "00744": "rijeka",
-    "03603": "rijeka",
-    "05070": "rijeka",
-    "03018": "rijeka",
-    "03638": "rijeka",
-    "06246": "rijeka",
-    "02909": "rijeka",
-    "02755": "rijeka",
-    "03697": "rijeka",
-    "05096": "rijeka",
-    "00388": "rijeka",
-    "03930": "rijeka",
-    "00698": "rijeka",
-    "01171": "rijeka",
-    "04880": "rijeka",
-    "02372": "rijeka",
-    "00558": "rijeka",
-    "02615": "rijeka",
-    "03026": "rijeka",
-    "02739": "rijeka",
-    "01864": "rijeka",
-    "01708": "rijeka",
-    "00612": "rijeka",
-    "01805": "rijeka",
-    "04952": "rijeka",
-    "03735": "rijeka",
-    "00043": "rijeka",
-    "05380": "rijeka",
-    "00531": "rijeka",
-    "02097": "rijeka",
-    "05410": "zagreb"
+    "02712": "pmoslavina"
   }
 }
