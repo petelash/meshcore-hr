@@ -1029,13 +1029,14 @@ function podloga(karta) {
   L.tileLayer(izvor.url, { maxZoom: izvor.maxZoom }).addTo(karta);
 
   const spremnik = karta.getContainer();
+  spremnik.classList.add('karta-tamna');   // zadano tamna, uz ostatak sučelja
   const kontrola = L.control({ position: 'topright' });
   kontrola.onAdd = function () {
     const d = L.DomUtil.create('div', '');
     d.style.cssText = 'background:#1f2937;border:1px solid rgba(255,255,255,.25);border-radius:.5rem;' +
       'padding:.3rem .6rem;cursor:pointer;font-size:.74rem;font-weight:600;color:#fff;' +
       'user-select:none;box-shadow:0 2px 8px rgba(0,0,0,.4)';
-    d.innerHTML = '<i class="fa-solid fa-moon"></i> Tamna';
+    d.innerHTML = '<i class="fa-solid fa-sun"></i> Svijetla';
     L.DomEvent.disableClickPropagation(d);
     d.onclick = () => {
       const tamna = spremnik.classList.toggle('karta-tamna');
@@ -3196,6 +3197,8 @@ const A = {
         '<span style="width:9px;height:9px;border-radius:2px;flex:none;background:' +
           R.bojaZa(R.zaJls(j)) + '"></span></label>').join('') + '</div>' +
 
+      (this.odabrani.size === 1 ? this.kartonOpcine([...this.odabrani][0]) : '') +
+
       (this.odabrani.size
         ? '<div class="mt-3 pt-3" style="border-top:1px solid var(--line)">' +
             '<label class="fld">Dodijeli u postojeću</label>' +
@@ -3234,6 +3237,23 @@ const A = {
       vid.forEach(j => { this.odabrani.add(j.s); this.oboji(j); });
       this.osvjeziOdabir();
     };
+    if ($('#aOdvoji')) $('#aOdvoji').onclick = () => {
+      const s = $('#aOdvoji').dataset.s;
+      delete R.dodjele[s];
+      R.spremiLokalno();
+      const j = GEO.jls.find(x => x.s === s);
+      if (j) this.oboji(j);
+      this.crtajStablo(); this.osvjeziOdabir();
+    };
+    if ($('#aObrisiReg')) $('#aObrisiReg').onclick = () => {
+      const id = $('#aObrisiReg').dataset.reg;
+      if (!confirm('Obrisati regiju #' + id + '? Općine koje su joj dodijeljene vraćaju se ' +
+                   'na županijsku regiju.')) return;
+      try {
+        R.makni(id); R.spremiLokalno();
+        this.obojiSve(); this.crtajStablo(); this.osvjeziOdabir();
+      } catch (e) { alert(e.message); }
+    };
     if ($('#aDodijeli')) $('#aDodijeli').onclick = () => this.dodijeli($('#aCilj').value);
     if ($('#aNapravi')) {
       const napravi = () => {
@@ -3247,6 +3267,62 @@ const A = {
       $('#aNapravi').onclick = napravi;
       $('#aNaziv').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); napravi(); } };
     }
+  },
+
+  /**
+   * Karton jedne općine: kojoj regiji pripada, cijeli lanac iznad nje i put natrag.
+   * Dodjela se ne briše zasebnim zapisom — `R.dodjele[šifra]` se jednostavno makne,
+   * pa općina opet ide po županiji.
+   */
+  kartonOpcine(sifra) {
+    const j = GEO.jls.find(x => x.s === sifra);
+    if (!j) return '';
+    const regId = R.zaJls(j);
+    const lanac = R.lanac(regId);
+    const rucna = !!R.dodjele[sifra];
+    const zup = R.cvor(j.r);
+    const moja = R.cvor(regId);
+    const osnovna = !moja || ['eu', 'hr'].includes(moja.id) || !!BOJA[moja.id];
+    const kolikoJos = Object.keys(R.dodjele).filter(k => R.dodjele[k] === regId).length +
+      GEO.jls.filter(x => x.r === regId && !R.dodjele[x.s]).length;
+
+    return '<div class="mt-3 pt-3" style="border-top:1px solid var(--line)">' +
+      '<div class="font-semibold text-sm">' + esc(j.n) + '</div>' +
+      '<div class="text-xs mb-2" style="color:var(--muted)">' + esc(GEO.zup[j.z]) +
+        (rucna ? ' · ručno dodijeljena' : ' · po županiji') + '</div>' +
+      '<div class="rounded-lg" style="background:#0b1220;border:1px solid var(--line);padding:.35rem 0">' +
+        lanac.map((c, i) =>
+          '<div style="display:flex;align-items:center;gap:.4rem;padding:.15rem .6rem;' +
+            'font-family:var(--mono);font-size:.74rem;white-space:pre;' +
+            (c.id === regId ? 'background:rgba(37,99,235,.28)' : '') + '">' +
+          '<span style="color:rgba(255,255,255,.3)">' +
+            (i === 0 ? '' : '    '.repeat(i - 1) + '\u2514\u2500\u2500 ') + '</span>' +
+          '<span style="width:8px;height:8px;border-radius:2px;flex:none;background:' +
+            R.bojaZa(c.id) + '"></span>' +
+          '<span style="' + (c.id === regId ? 'color:#fff;font-weight:600' : 'color:#cbd5e1') + '">#' +
+            esc(c.naziv) + '</span>' +
+          (c.id === regId
+            ? '<span style="color:#60a5fa;font-size:.68rem;margin-left:auto">ovdje je</span>' : '') +
+          '</div>').join('') +
+      '</div>' +
+      '<div class="flex gap-2 mt-2">' +
+        (rucna && zup
+          ? '<button id="aOdvoji" class="btn btn-ghost btn-sm flex-1" data-s="' + esc(sifra) + '">' +
+            '<i class="fa-solid fa-rotate-left"></i> Vrati u #' + esc(zup.naziv) + '</button>'
+          : '') +
+        (osnovna ? '' :
+          '<button id="aObrisiReg" class="btn btn-ghost btn-sm" data-reg="' + esc(regId) + '" ' +
+          'title="Obri\u0161i regiju #' + esc(moja.naziv) + '">' +
+          '<i class="fa-solid fa-trash"></i> Obri\u0161i #' + esc(moja.naziv) + '</button>') +
+      '</div>' +
+      '<div class="hint">' +
+        (rucna
+          ? 'Ova op\u0107ina je ru\u010dno stavljena u <b>#' + esc(moja.naziv) + '</b>. ' +
+            '\u201cVrati\u201d je \u0161alje natrag na \u017eupanijsku regiju.'
+          : 'Op\u0107ina ide po \u017eupaniji. Dodijeli\u0161 li je drugoj regiji, ovdje \u0107e pisati kojoj.') +
+        (osnovna ? '' : ' Brisanjem regije #' + esc(moja.naziv) + ' njezine op\u0107ine (' +
+          kolikoJos + ') vra\u0107aju se na \u017eupanijske regije.') +
+      '</div></div>';
   },
 
   /** Stablo kao <option> popis, s uvlakama. */
