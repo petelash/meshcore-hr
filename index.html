@@ -2062,27 +2062,47 @@ function bojaPodrucja(reg) {
   return boja;
 }
 
+/** "1 općina, 2 općine, 5 općina" — uz iznimku za 11–14. */
+function rijecOpcina(n) {
+  const d = n % 10, dd = n % 100;
+  if (dd >= 11 && dd <= 14) return 'općina';
+  if (d >= 2 && d <= 4) return 'općine';
+  return 'općina';
+}
+
 /**
  * Stil područja jedne regije; "jako" je ono pod mišem ili odabrano.
  * `weight: 0` — nema obruba, pa ni granica općina unutar regije. Susjedne
  * regije se razlikuju nijansom, a odabrana je jače ispunjena.
  */
-function stilRegije(reg, jako) {
-  const boja = bojaPodrucja(reg);
-  return { stroke: false, weight: 0, fillColor: boja,
+function stilRegije(reg, jako, boja) {
+  return { stroke: false, weight: 0, fillColor: boja || bojaPodrucja(reg),
            fillOpacity: jako ? 0.62 : 0.32 };
+}
+
+/** Regija i sve ispod nje — to je ploha koju korisnik vidi kao jednu. */
+function podrucjeRegije(reg) {
+  const out = [reg];
+  for (const d of R.potomci(reg)) out.push(d.cvor.id);
+  return out;
 }
 
 /** Istakni cijelo područje regije, ne samo općinu pod mišem. */
 function istakniRegiju(reg) {
-  (slojeviReg[reg] || []).forEach(p => p.setStyle(stilRegije(reg, true)));
+  // Podregije se prelije u nijansu roditelja, da ne bude mrlje unutar mrlje.
+  const boja = bojaPodrucja(reg);
+  for (const r of podrucjeRegije(reg)) {
+    (slojeviReg[r] || []).forEach(p => p.setStyle(stilRegije(r, true, boja)));
+  }
 }
 
 /** Vrati sve na mjesto, uz regiju čvora koja ostaje istaknuta. */
 function osvjeziIsticanje() {
+  const odabrano = S.regijaId ? podrucjeRegije(S.regijaId) : [];
+  const boja = S.regijaId ? bojaPodrucja(S.regijaId) : null;
   for (const reg of Object.keys(slojeviReg)) {
-    const jako = reg === S.regijaId;
-    slojeviReg[reg].forEach(p => p.setStyle(stilRegije(reg, jako)));
+    const jako = odabrano.indexOf(reg) >= 0;
+    slojeviReg[reg].forEach(p => p.setStyle(stilRegije(reg, jako, jako ? boja : null)));
   }
 }
 
@@ -2130,14 +2150,17 @@ function osvjeziInfo() {
   const reg = R.zaJls(S.jls);
   const lanac = R.lanac(reg);
   const moja = R.cvor(reg);
-  const koliko = GEO.jls.filter(x => R.zaJls(x) === reg).length;
+  const podrucje = podrucjeRegije(reg);
+  const koliko = GEO.jls.filter(x => podrucje.indexOf(R.zaJls(x)) >= 0).length;
+  const uPodregijama = koliko - GEO.jls.filter(x => R.zaJls(x) === reg).length;
   el.innerHTML =
     '<div class="text-xs font-bold tracking-widest mb-2" style="color:var(--muted)">PODRUČJE</div>' +
     '<div class="font-semibold" style="color:' + R.bojaZa(reg) + '">#' +
       esc(moja ? moja.naziv : reg) + '</div>' +
     '<div class="text-sm mb-3" style="color:var(--muted)">' + koliko +
-      (koliko === 1 ? ' općina' : (koliko < 5 ? ' općine' : ' općina')) +
-      ' s istim postavkama</div>' +
+      ' ' + rijecOpcina(koliko) +
+      ' s istim postavkama' +
+      (uPodregijama ? ', od toga ' + uPodregijama + ' u podregijama' : '') + '</div>' +
     '<div class="flex flex-wrap gap-1">' + lanac.map(c =>
       '<span class="chip" style="background:' + R.bojaZa(c.id) + '22;border-color:' +
       R.bojaZa(c.id) + '66">#' + esc(c.naziv) + '</span>').join('') + '</div>' +
