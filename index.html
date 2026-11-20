@@ -779,6 +779,7 @@ async function dohvatiIzRepoa(putanja) {
 const R = {
   stablo: stabloPocetno(),
   dodjele: {},          // sifraJLS -> id regije (samo kad odstupa od županijske)
+  zupReg: {},           // sifraZupanije -> id regije; sloj izmedju četiri regije i općina
   ucitano: false,
   nespremljeno: false,
   izvor: 'ugrađeno',
@@ -806,10 +807,25 @@ const R = {
     return out;
   },
 
-  /** Regija kojoj općina pripada: izričita dodjela, inače županijska. */
+  /**
+   * Regija kojoj općina pripada. Redom: izričita dodjela te općine, pa regija
+   * njezine županije, pa — ako tablice županija nema — jedna od četiri osnovne
+   * iz ugrađenog podatkovnog sloja.
+   */
   zaJls(jls) {
     if (!jls) return null;
-    return this.dodjele[jls.s] || jls.r;
+    const po = this.dodjele[jls.s];
+    if (po && this.cvor(po)) return po;
+    const zr = this.zupReg[jls.z];
+    if (zr && this.cvor(zr)) return zr;
+    return jls.r;
+  },
+
+  /** Regija županije u kojoj općina leži — ondje se vraća kad joj se makne dodjela. */
+  zupanijskaZa(jls) {
+    if (!jls) return null;
+    const zr = this.zupReg[jls.z];
+    return (zr && this.cvor(zr)) ? zr : jls.r;
   },
 
   /** Boja za crtanje — nasljeđuje se od one od četiri glavne regije. */
@@ -834,6 +850,7 @@ const R = {
     if (this.djeca(id).length) throw new Error('prvo makni podregije');
     this.stablo = this.stablo.filter(x => x.id !== id);
     for (const k of Object.keys(this.dodjele)) if (this.dodjele[k] === id) delete this.dodjele[k];
+    for (const k of Object.keys(this.zupReg)) if (this.zupReg[k] === id) delete this.zupReg[k];
   },
 
   premjesti(id, noviRoditelj) {
@@ -845,7 +862,8 @@ const R = {
   /* --- pohrana ---------------------------------------------------------- */
   spremiLokalno() {
     try {
-      localStorage.setItem('mchr.regije', JSON.stringify({ stablo: this.stablo, dodjele: this.dodjele }));
+      localStorage.setItem('mchr.regije',
+        JSON.stringify({ stablo: this.stablo, dodjele: this.dodjele, zupReg: this.zupReg }));
     } catch (e) {}
   },
   /**
@@ -862,12 +880,13 @@ const R = {
       if (!d || !Array.isArray(d.stablo)) return false;
 
       if (imaMrezu) {
-        const kljuc = x => JSON.stringify({ s: x.stablo, d: x.dodjele || {} });
-        if (kljuc({ stablo: this.stablo, dodjele: this.dodjele }) === kljuc(d)) return false;
+        const kljuc = x => JSON.stringify({ s: x.stablo, d: x.dodjele || {}, z: x.zupReg || {} });
+        if (kljuc(this) === kljuc(d)) return false;
         this.nespremljeno = true;
       }
       this.stablo = d.stablo;
       this.dodjele = d.dodjele || {};
+      this.zupReg = d.zupReg || {};
       if (!imaMrezu) this.izvor = 'preglednik';
       return true;
     } catch (e) { return false; }
@@ -879,6 +898,7 @@ const R = {
     this.nespremljeno = false;
     this.stablo = stabloPocetno();
     this.dodjele = {};
+    this.zupReg = {};
     this.izvor = 'ugrađeno';
     await this.ucitajSMreze();
   },
@@ -889,6 +909,7 @@ const R = {
     if (!d || !Array.isArray(d.stablo)) return false;
     this.stablo = d.stablo;
     this.dodjele = d.dodjele || {};
+    this.zupReg = d.zupReg || {};
     this.ucitano = true;
     this.izvor = KONF.repo;
     return true;
@@ -898,6 +919,7 @@ const R = {
     return JSON.stringify({
       verzija: 1,
       azurirano: new Date().toISOString().slice(0, 10),
+      zupReg: this.zupReg,
       stablo: this.stablo,
       dodjele: this.dodjele,
     }, null, 2);
@@ -3279,8 +3301,8 @@ const A = {
     if (!j) return '';
     const regId = R.zaJls(j);
     const lanac = R.lanac(regId);
-    const rucna = !!R.dodjele[sifra];
-    const zup = R.cvor(j.r);
+    const rucna = R.zaJls(j) !== R.zupanijskaZa(j);
+    const zup = R.cvor(R.zupanijskaZa(j));
     const moja = R.cvor(regId);
     const osnovna = !moja || ['eu', 'hr'].includes(moja.id) || !!BOJA[moja.id];
     const kolikoJos = Object.keys(R.dodjele).filter(k => R.dodjele[k] === regId).length +
@@ -3348,7 +3370,7 @@ const A = {
     for (const s of this.odabrani) {
       const j = GEO.jls.find(x => x.s === s);
       if (!j) continue;
-      if (regId === j.r) delete R.dodjele[s];     // natrag na županijsku
+      if (regId === R.zupanijskaZa(j)) delete R.dodjele[s];   // natrag na županijsku
       else R.dodjele[s] = regId;
     }
     this.odabrani.clear();
@@ -3365,7 +3387,7 @@ const A = {
       try {
         const d = JSON.parse(await f.text());
         if (!Array.isArray(d.stablo)) throw new Error('datoteka nema "stablo"');
-        R.stablo = d.stablo; R.dodjele = d.dodjele || {};
+        R.stablo = d.stablo; R.dodjele = d.dodjele || {}; R.zupReg = d.zupReg || {};
         R.izvor = f.name; R.spremiLokalno();
         this.crtaj();
       } catch (e) { alert('Ne mogu učitati: ' + e.message); }
