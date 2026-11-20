@@ -2047,14 +2047,17 @@ function _uHsl(hex) {
 /** Boja plohe za zadanu regiju — nijansa boje njezine četvrtine. */
 function bojaPodrucja(reg) {
   if (_nijansa[reg]) return _nijansa[reg];
+  // Četiri glavne regije nose svoju boju netaknutu; nijanse su za ono ispod njih.
+  if (BOJA[reg]) return (_nijansa[reg] = BOJA[reg]);
+
   const lanac = R.lanac(reg);
   const makro = lanac.find(c => BOJA[c.id]);
   const [h, sat, l] = _uHsl(makro ? BOJA[makro.id] : '#6b7280');
 
-  // redni broj regije među svojom braćom, da nijanse idu redom a ne nasumično
-  const braca = makro ? R.djeca(makro.id).map(c => c.id) : [];
-  const i = braca.indexOf(lanac[lanac.indexOf(makro) + 1] ? lanac[lanac.indexOf(makro) + 1].id : reg);
-  const k = i < 0 ? 0 : i;
+  // redni broj među svim potomcima te regije, da nijanse idu redom a ne nasumično
+  const potomci = makro ? R.potomci(makro.id).map(x => x.cvor.id) : [];
+  const i = potomci.indexOf(reg);
+  const k = (i < 0 ? 0 : i) + 1;
   const dh = ((k % 5) - 2) * 7;                      // ±14° tona
   const dl = (((k + Math.floor(k / 5)) % 4) - 1.5) * 0.09;   // ±13 % svjetline
   const boja = 'hsl(' + ((h + dh + 360) % 360).toFixed(0) + ',' +
