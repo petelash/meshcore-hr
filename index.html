@@ -2092,6 +2092,15 @@ function crtajRegije() {
   const rb = regijeBlok();
 
   rz.innerHTML =
+    // Nespremljeni rad iz admina ima prednost nad GitHubom i tiho se uvuce i ovamo.
+    // Bez ove napomene ispadne da wizard generira zastarjelo stablo.
+    (R.nespremljeno
+      ? '<div class="note warn mb-3" style="font-size:.82rem">' +
+        '<b>Stablo je iz ovog preglednika, ne s GitHuba.</b> Netko je ovdje ure\u0111ivao regije ' +
+        'i nije ih spremio, pa se razlikuje od slu\u017ebenog.' +
+        '<button id="bSluzbeno" class="btn btn-ghost btn-sm w-full mt-2">' +
+          '<i class="fa-solid fa-rotate-left"></i> Uzmi slu\u017ebeno stablo</button></div>'
+      : '') +
     '<label class="fld">Regija \u010dvora</label>' +
     '<div id="stabloRazina" class="rounded-lg" style="background:#0b1220;' +
       'border:1px solid var(--line);padding:.45rem 0">' +
@@ -2126,6 +2135,15 @@ function crtajRegije() {
     '<div class="hint">Upisuje se samo lanac do tvoje regije \u2014 ni\u0161ta susjedno ni podre\u0111eno. ' +
       'Nedostaje li ti neka razina u stablu, dodaje se u adminu, da je dobiju svi \u010dvorovi, ' +
       'a ne samo tvoj.</div>';
+
+  if ($('#bSluzbeno')) $('#bSluzbeno').onclick = async () => {
+    const b = $('#bSluzbeno');
+    b.disabled = true;
+    b.innerHTML = '<i class="fa-solid fa-circle-notch spin"></i> u\u010ditavam\u2026';
+    await R.odbaciLokalno();
+    S.regijaId = null; S.homeId = null;
+    osvjeziInfo();
+  };
 
   $$('#stabloRazina .razina-red').forEach(el => {
     el.onclick = () => { S.homeId = el.dataset.id; crtajRegije(); };
