@@ -101,6 +101,10 @@ body:not(.s-konzolom) #konzolaWrap{display:none}
   #konzolaWrap > div{border-left:none;border-top:1px solid var(--line-hi)}
 }
 .leaflet-container{background:#0b1220;border-radius:.75rem;font-family:inherit}
+/* Klik na oznaku ili područje daje fokus, a preglednik oko njega crta okvir.
+   Mišu ga mičemo, tipkovnici ostaje (:focus-visible). */
+.leaflet-container :focus:not(:focus-visible){outline:none}
+.leaflet-container :focus:not(:focus-visible) path{outline:none}
 /* OSM pločice prebojene u tamno da se uklope, bez gubitka čitljivosti natpisa */
 .karta-tamna .leaflet-tile-pane{
   filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.86) saturate(.65);
