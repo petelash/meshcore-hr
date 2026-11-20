@@ -2016,13 +2016,57 @@ function crtajKartu(id, naKlik) {
   karta.on('click', e => naKlik(+e.latlng.lat.toFixed(5), +e.latlng.lng.toFixed(5)));
 }
 
-/** Stil područja jedne regije; "jako" je ono pod mišem ili odabrano. */
+/* --- boje područja ---------------------------------------------------------
+   Regije unutar iste četvrtine dijele osnovnu boju, pa bi bez granica bile
+   neraspoznatljive. Zato svaka dobije svoju nijansu te boje — susjedi se
+   razlikuju tonom, a unutar regije nema nijedne crte.                        */
+const _nijansa = {};
+
+function _uHsl(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, sat = 0; const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    sat = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+  }
+  return [h, sat, l];
+}
+
+/** Boja plohe za zadanu regiju — nijansa boje njezine četvrtine. */
+function bojaPodrucja(reg) {
+  if (_nijansa[reg]) return _nijansa[reg];
+  const lanac = R.lanac(reg);
+  const makro = lanac.find(c => BOJA[c.id]);
+  const [h, sat, l] = _uHsl(makro ? BOJA[makro.id] : '#6b7280');
+
+  // redni broj regije među svojom braćom, da nijanse idu redom a ne nasumično
+  const braca = makro ? R.djeca(makro.id).map(c => c.id) : [];
+  const i = braca.indexOf(lanac[lanac.indexOf(makro) + 1] ? lanac[lanac.indexOf(makro) + 1].id : reg);
+  const k = i < 0 ? 0 : i;
+  const dh = ((k % 5) - 2) * 7;                      // ±14° tona
+  const dl = (((k + Math.floor(k / 5)) % 4) - 1.5) * 0.09;   // ±13 % svjetline
+  const boja = 'hsl(' + ((h + dh + 360) % 360).toFixed(0) + ',' +
+    Math.round(Math.min(0.92, Math.max(0.3, sat)) * 100) + '%,' +
+    Math.round(Math.min(0.78, Math.max(0.28, l + dl)) * 100) + '%)';
+  _nijansa[reg] = boja;
+  return boja;
+}
+
+/**
+ * Stil područja jedne regije; "jako" je ono pod mišem ili odabrano.
+ * `weight: 0` — nema obruba, pa ni granica općina unutar regije. Susjedne
+ * regije se razlikuju nijansom, a odabrana je jače ispunjena.
+ */
 function stilRegije(reg, jako) {
-  const boja = R.bojaZa(reg);
-  // Granice općina unutar regije namjerno su blijede: korisnik treba vidjeti
-  // jednu plohu, a ne mozaik općina koje bi birao.
-  return { color: boja, weight: 1, opacity: jako ? 0.5 : 0.3,
-           fillColor: boja, fillOpacity: jako ? 0.42 : 0.13 };
+  const boja = bojaPodrucja(reg);
+  return { stroke: false, weight: 0, fillColor: boja,
+           fillOpacity: jako ? 0.62 : 0.32 };
 }
 
 /** Istakni cijelo područje regije, ne samo općinu pod mišem. */
