@@ -76,6 +76,11 @@
       "id": "pula",
       "naziv": "pula",
       "roditelj": "istralika"
+    },
+    {
+      "id": "rijeka",
+      "naziv": "rijeka",
+      "roditelj": "istralika"
     }
   ],
   "dodjele": {
@@ -168,6 +173,41 @@
     "05029": "pula",
     "02356": "pula",
     "06190": "pula",
-    "02631": "pula"
+    "02631": "pula",
+    "00523": "rijeka",
+    "02526": "rijeka",
+    "02534": "rijeka",
+    "00086": "rijeka",
+    "02151": "rijeka",
+    "00744": "rijeka",
+    "03603": "rijeka",
+    "05070": "rijeka",
+    "03018": "rijeka",
+    "03638": "rijeka",
+    "06246": "rijeka",
+    "02909": "rijeka",
+    "02755": "rijeka",
+    "03697": "rijeka",
+    "05096": "rijeka",
+    "00388": "rijeka",
+    "03930": "rijeka",
+    "00698": "rijeka",
+    "01171": "rijeka",
+    "04880": "rijeka",
+    "02372": "rijeka",
+    "00558": "rijeka",
+    "02615": "rijeka",
+    "03026": "rijeka",
+    "02739": "rijeka",
+    "01864": "rijeka",
+    "01708": "rijeka",
+    "00612": "rijeka",
+    "01805": "rijeka",
+    "04952": "rijeka",
+    "03735": "rijeka",
+    "00043": "rijeka",
+    "05380": "rijeka",
+    "00531": "rijeka",
+    "02097": "rijeka"
   }
 }
