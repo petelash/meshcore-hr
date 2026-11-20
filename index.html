@@ -1930,6 +1930,7 @@ function kGotovo(h) {
    07 Lokacija na karti
    =========================================================================== */
 let karta = null, sloj = null, pin = null, slojevi = {};
+let slojeviReg = {};   // id regije -> svi njezini poligoni, da se ponašaju kao cjelina
 
 function kKarta(h) {
   const br = koraci().findIndex(k => k.id === 'karta') + 1;
@@ -1997,20 +1998,44 @@ function crtajKartu(id, naKlik) {
     .setView([44.8, 16.4], 7);
   podloga(karta);
 
+  // Korisnik ne bira općinu nego područje jedne regije: sve općine koje završe
+  // u istoj regiji dijele stil, ističu se zajedno i nose isti naziv u oblakću.
   slojevi = {};
+  slojeviReg = {};
   sloj = L.layerGroup().addTo(karta);
   for (const j of GEO.jls) {
     const reg = R.zaJls(j);
-    const p = L.geoJSON(gjZa(j), {
-      style: { color: R.bojaZa(reg), weight: 1, opacity: 0.8,
-               fillColor: R.bojaZa(reg), fillOpacity: 0.16 },
-    }).addTo(sloj);
-    p.on('mouseover', () => p.setStyle({ fillOpacity: 0.38, weight: 2 }));
-    p.on('mouseout',  () => p.setStyle({ fillOpacity: 0.16, weight: 1 }));
-    p.bindTooltip(j.n + ' · ' + GEO.zup[j.z], { sticky: true, className: 'jls-lbl' });
+    const c = R.cvor(reg);
+    const p = L.geoJSON(gjZa(j), { style: stilRegije(reg, false) }).addTo(sloj);
+    (slojeviReg[reg] = slojeviReg[reg] || []).push(p);
+    p.on('mouseover', () => istakniRegiju(reg));
+    p.on('mouseout',  () => osvjeziIsticanje());
+    p.bindTooltip('#' + (c ? c.naziv : reg), { sticky: true, className: 'jls-lbl' });
     slojevi[j.s] = p;
   }
   karta.on('click', e => naKlik(+e.latlng.lat.toFixed(5), +e.latlng.lng.toFixed(5)));
+}
+
+/** Stil područja jedne regije; "jako" je ono pod mišem ili odabrano. */
+function stilRegije(reg, jako) {
+  const boja = R.bojaZa(reg);
+  // Granice općina unutar regije namjerno su blijede: korisnik treba vidjeti
+  // jednu plohu, a ne mozaik općina koje bi birao.
+  return { color: boja, weight: 1, opacity: jako ? 0.5 : 0.3,
+           fillColor: boja, fillOpacity: jako ? 0.42 : 0.13 };
+}
+
+/** Istakni cijelo područje regije, ne samo općinu pod mišem. */
+function istakniRegiju(reg) {
+  (slojeviReg[reg] || []).forEach(p => p.setStyle(stilRegije(reg, true)));
+}
+
+/** Vrati sve na mjesto, uz regiju čvora koja ostaje istaknuta. */
+function osvjeziIsticanje() {
+  for (const reg of Object.keys(slojeviReg)) {
+    const jako = reg === S.regijaId;
+    slojeviReg[reg].forEach(p => p.setStyle(stilRegije(reg, jako)));
+  }
 }
 
 function postaviTocku(pomakni) {
@@ -2056,15 +2081,23 @@ function osvjeziInfo() {
   }
   const reg = R.zaJls(S.jls);
   const lanac = R.lanac(reg);
+  const moja = R.cvor(reg);
+  const koliko = GEO.jls.filter(x => R.zaJls(x) === reg).length;
   el.innerHTML =
-    '<div class="text-xs font-bold tracking-widest mb-2" style="color:var(--muted)">LOKACIJA</div>' +
-    '<div class="font-semibold">' + esc(S.jls.n) + '</div>' +
-    '<div class="text-sm mb-3" style="color:var(--muted)">' + esc(GEO.zup[S.jls.z]) + '</div>' +
+    '<div class="text-xs font-bold tracking-widest mb-2" style="color:var(--muted)">PODRUČJE</div>' +
+    '<div class="font-semibold" style="color:' + R.bojaZa(reg) + '">#' +
+      esc(moja ? moja.naziv : reg) + '</div>' +
+    '<div class="text-sm mb-3" style="color:var(--muted)">' + koliko +
+      (koliko === 1 ? ' općina' : (koliko < 5 ? ' općine' : ' općina')) +
+      ' s istim postavkama</div>' +
     '<div class="flex flex-wrap gap-1">' + lanac.map(c =>
       '<span class="chip" style="background:' + R.bojaZa(c.id) + '22;border-color:' +
-      R.bojaZa(c.id) + '66">#' + esc(c.naziv) + '</span>').join('') + '</div>';
+      R.bojaZa(c.id) + '66">#' + esc(c.naziv) + '</span>').join('') + '</div>' +
+    '<div class="hint">Točka je u općini ' + esc(S.jls.n) + ', ' + esc(GEO.zup[S.jls.z]) +
+      '. Čvor dobiva postavke cijelog područja, ne pojedine općine.</div>';
 
   S.regijaId = reg;   // regija ide iz lokacije, ne bira se rucno
+  osvjeziIsticanje();
   // "region home" smije biti bilo koja razina tog istog lanca, ali nikad izvan njega.
   if (!S.homeId || !R.lanac(reg).some(c => c.id === S.homeId)) S.homeId = reg;
   crtajRegije();
