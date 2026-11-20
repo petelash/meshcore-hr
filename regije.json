@@ -1,6 +1,6 @@
 {
   "verzija": 1,
-  "azurirano": "2026-11-19",
+  "azurirano": "2026-11-20",
   "stablo": [
     {
       "id": "eu",
@@ -61,6 +61,16 @@
       "id": "marijanci",
       "naziv": "marijanci",
       "roditelj": "miholjstina"
+    },
+    {
+      "id": "osijek",
+      "naziv": "osijek",
+      "roditelj": "slavonija"
+    },
+    {
+      "id": "zagreb",
+      "naziv": "zagreb",
+      "roditelj": "sredisnja"
     }
   ],
   "dodjele": {
@@ -68,6 +78,50 @@
     "04855": "viljevo",
     "05789": "magadenovac",
     "02577": "marijanci",
-    "02712": "pmoslavina"
+    "02712": "pmoslavina",
+    "03123": "osijek",
+    "00027": "osijek",
+    "00213": "osijek",
+    "00655": "osijek",
+    "01104": "osijek",
+    "01112": "osijek",
+    "06149": "osijek",
+    "05797": "osijek",
+    "05177": "osijek",
+    "01333": "zagreb",
+    "05509": "zagreb",
+    "05479": "zagreb",
+    "00337": "zagreb",
+    "00345": "zagreb",
+    "00973": "zagreb",
+    "01147": "zagreb",
+    "01350": "zagreb",
+    "01902": "zagreb",
+    "01937": "zagreb",
+    "05339": "zagreb",
+    "05452": "zagreb",
+    "02135": "zagreb",
+    "05487": "zagreb",
+    "05398": "zagreb",
+    "05410": "zagreb",
+    "03760": "zagreb",
+    "01015": "zagreb",
+    "04367": "zagreb",
+    "05517": "zagreb",
+    "03808": "zagreb",
+    "05401": "zagreb",
+    "01694": "zagreb",
+    "03310": "zagreb",
+    "05444": "zagreb",
+    "01589": "zagreb",
+    "05428": "zagreb",
+    "05088": "zagreb",
+    "04294": "zagreb",
+    "05436": "zagreb",
+    "03620": "zagreb",
+    "05495": "zagreb",
+    "01635": "zagreb",
+    "03565": "zagreb",
+    "05363": "zagreb"
   }
 }
