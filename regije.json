@@ -1,29 +1,6 @@
 {
   "verzija": 1,
   "azurirano": "2026-11-20",
-  "zupReg": {
-    "01": "zagreb",
-    "02": "krapina",
-    "03": "sisak",
-    "04": "karlovac",
-    "05": "varazdin",
-    "06": "koprivnica",
-    "07": "bjelovar",
-    "08": "rijeka",
-    "09": "gospic",
-    "10": "virovitica",
-    "11": "pozega",
-    "12": "sbrod",
-    "13": "zadar",
-    "14": "osijek",
-    "15": "sibenik",
-    "16": "vukovar",
-    "17": "split",
-    "18": "pula",
-    "19": "dubrovnik",
-    "20": "cakovec",
-    "21": "zagreb"
-  },
   "stablo": [
     {
       "id": "eu",
@@ -56,109 +33,9 @@
       "roditelj": "hr"
     },
     {
-      "id": "osijek",
-      "naziv": "osijek",
-      "roditelj": "slavonija"
-    },
-    {
-      "id": "pozega",
-      "naziv": "pozega",
-      "roditelj": "slavonija"
-    },
-    {
-      "id": "sbrod",
-      "naziv": "sbrod",
-      "roditelj": "slavonija"
-    },
-    {
-      "id": "virovitica",
-      "naziv": "virovitica",
-      "roditelj": "slavonija"
-    },
-    {
-      "id": "vukovar",
-      "naziv": "vukovar",
-      "roditelj": "slavonija"
-    },
-    {
-      "id": "bjelovar",
-      "naziv": "bjelovar",
-      "roditelj": "sredisnja"
-    },
-    {
-      "id": "cakovec",
-      "naziv": "cakovec",
-      "roditelj": "sredisnja"
-    },
-    {
-      "id": "karlovac",
-      "naziv": "karlovac",
-      "roditelj": "sredisnja"
-    },
-    {
-      "id": "koprivnica",
-      "naziv": "koprivnica",
-      "roditelj": "sredisnja"
-    },
-    {
-      "id": "krapina",
-      "naziv": "krapina",
-      "roditelj": "sredisnja"
-    },
-    {
-      "id": "sisak",
-      "naziv": "sisak",
-      "roditelj": "sredisnja"
-    },
-    {
-      "id": "varazdin",
-      "naziv": "varazdin",
-      "roditelj": "sredisnja"
-    },
-    {
-      "id": "zagreb",
-      "naziv": "zagreb",
-      "roditelj": "sredisnja"
-    },
-    {
-      "id": "gospic",
-      "naziv": "gospic",
-      "roditelj": "istralika"
-    },
-    {
-      "id": "pula",
-      "naziv": "pula",
-      "roditelj": "istralika"
-    },
-    {
-      "id": "rijeka",
-      "naziv": "rijeka",
-      "roditelj": "istralika"
-    },
-    {
-      "id": "dubrovnik",
-      "naziv": "dubrovnik",
-      "roditelj": "dalmacija"
-    },
-    {
-      "id": "sibenik",
-      "naziv": "sibenik",
-      "roditelj": "dalmacija"
-    },
-    {
-      "id": "split",
-      "naziv": "split",
-      "roditelj": "dalmacija"
-    },
-    {
-      "id": "zadar",
-      "naziv": "zadar",
-      "roditelj": "dalmacija"
-    },
-    {
       "id": "miholjstina",
       "naziv": "miholjstina",
-      "roditelj": "osijek"
+      "roditelj": "slavonija"
     },
     {
       "id": "dmiholjac",
